@@ -1,0 +1,22 @@
+# CareerOS - Useful Commands
+
+## Start the Backend (FastAPI + LangGraph)
+Run this from the `backend` directory to start the server with auto-reload:
+```bash
+cd backend
+source venv/bin/activate
+uvicorn main:app --reload --port 8000
+```
+
+## Start the Frontend (Vite + React)
+Run this from the `frontend` directory to start the dev server:
+```bash
+cd frontend
+npm run dev
+```
+
+## Git Commit Step 2
+When you are ready to wrap up Step 2, run:
+```bash
+git commit -m "feat: langgraph stateful brain and dashboard persistence"
+```
