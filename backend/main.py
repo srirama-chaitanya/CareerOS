@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -6,6 +6,7 @@ import logging
 
 from db.database import get_checkpointer
 from agents.graph import get_graph
+from db.chroma_db import process_and_store_pdf
 
 logging.basicConfig(level=logging.INFO)
 
@@ -28,9 +29,7 @@ class ChatRequest(BaseModel):
     message: str
 
 class StateUpdateRequest(BaseModel):
-    leetcode_rating: Optional[str] = None
-    core_skills: Optional[List[str]] = None
-    projects: Optional[List[str]] = None
+    trigger_analysis: Optional[bool] = True
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
@@ -46,10 +45,7 @@ async def get_state(thread_id: str = "default_user"):
     else:
         # Default empty state
         return {
-            "leetcode_rating": "",
-            "core_skills": [],
-            "projects": [],
-            "strategist_comment": ""
+            "status": "ready"
         }
 
 @app.post("/api/state")
@@ -57,17 +53,25 @@ async def update_state(request: StateUpdateRequest, thread_id: str = "default_us
     config = {"configurable": {"thread_id": thread_id}}
     
     update_data = {}
-    if request.leetcode_rating is not None:
-        update_data["leetcode_rating"] = request.leetcode_rating
-    if request.core_skills is not None:
-        update_data["core_skills"] = request.core_skills
-    if request.projects is not None:
-        update_data["projects"] = request.projects
-        
-    logging.info(f"Updating state for {thread_id} with data: {update_data}")
+    logging.info(f"Generating insight for {thread_id} via RAG")
 
     # Invoke graph to update state and generate strategist comment
     # Since we are using an LLM, this might take a few seconds
     result = agent_graph.invoke(update_data, config=config)
     
     return result
+
+@app.post("/api/upload")
+async def upload_resume(file: UploadFile = File(...)):
+    if not file.filename.endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files are supported.")
+    
+    try:
+        contents = await file.read()
+        # This will take a few seconds to extract, chunk, and embed
+        process_and_store_pdf(contents)
+        return {"status": "success", "message": "Resume uploaded and indexed successfully."}
+    except Exception as e:
+        logging.error(f"Error processing resume: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Failed to process resume: {str(e)}")
+

@@ -3,12 +3,10 @@ from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 import os
+from db.chroma_db import retrieve_context
 
 class AgentState(TypedDict):
-    leetcode_rating: str
-    core_skills: List[str]
-    projects: List[str]
-    strategist_comment: str
+    status: str
 
 import os
 from dotenv import load_dotenv
@@ -21,37 +19,12 @@ api_key = os.environ.get("GOOGLE_API_KEY") or "missing_api_key"
 llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, google_api_key=api_key)
 
 SYSTEM_PROMPT = """You are an Elite Technical Career Strategist.
-Your goal is to evaluate the engineer's technical profile.
-Constraints:
-- You must prioritize highlighting competitive programming stats (like LeetCode Knight 1900+) and heavy backend/full-stack experience (like Java, MERN stack).
-- FORBIDDEN: You must NEVER mention CGPA, academic averages, or C++. Focus purely on engineering impact.
-
-Provide a single, hard-hitting professional sentence summarizing the engineer's technical strength based on their stats."""
+Currently standing by for instructions."""
 
 def analyze_profile(state: AgentState):
-    skills = ", ".join(state.get("core_skills", []))
-    rating = state.get("leetcode_rating", "N/A")
-    projects = ", ".join(state.get("projects", []))
-    
-    prompt = f"Profile:\nLeetCode Rating: {rating}\nSkills: {skills}\nProjects: {projects}"
-    
-    messages = [
-        SystemMessage(content=SYSTEM_PROMPT),
-        HumanMessage(content=prompt)
-    ]
-    
-    try:
-        response = llm.invoke(messages)
-        comment = response.content.strip()
-    except Exception as e:
-        comment = f"Could not generate comment: {str(e)}"
-        
-    # We return the delta for the state
+    # Dummy node for now, just sets status
     return {
-        "leetcode_rating": rating,
-        "core_skills": state.get("core_skills", []),
-        "projects": state.get("projects", []),
-        "strategist_comment": comment
+        "status": "ready"
     }
 
 # Build graph
