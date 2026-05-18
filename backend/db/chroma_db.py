@@ -19,6 +19,13 @@ embeddings = GoogleGenerativeAIEmbeddings(model="models/gemini-embedding-2", goo
 def get_collection():
     return chroma_client.get_or_create_collection(name="resume_collection")
 
+def is_resume_loaded() -> bool:
+    try:
+        collection = get_collection()
+        return collection.count() > 0
+    except Exception:
+        return False
+
 def process_and_store_pdf(file_bytes: bytes):
     # Write to a temp file so PyPDFLoader can read it
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:

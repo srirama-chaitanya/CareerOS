@@ -6,7 +6,7 @@ import logging
 
 from db.database import get_checkpointer
 from agents.graph import get_graph
-from db.chroma_db import process_and_store_pdf
+from db.chroma_db import process_and_store_pdf, is_resume_loaded
 
 logging.basicConfig(level=logging.INFO)
 
@@ -30,6 +30,14 @@ class ChatRequest(BaseModel):
 
 class StateUpdateRequest(BaseModel):
     trigger_analysis: Optional[bool] = True
+
+class HuntRequest(BaseModel):
+    mode: str
+    query: Optional[str] = ""
+    location: Optional[str] = ""
+    job_type: Optional[str] = ""
+    experience_level: Optional[str] = ""
+    extra_info: Optional[str] = ""
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
@@ -61,6 +69,24 @@ async def update_state(request: StateUpdateRequest, thread_id: str = "default_us
     
     return result
 
+@app.post("/api/hunt")
+async def trigger_hunt(request: HuntRequest, thread_id: str = "engineer_1"):
+    config = {"configurable": {"thread_id": thread_id}}
+    update_data = {
+        "action": "hunt",
+        "hunt_mode": request.mode,
+        "hunt_query": request.query,
+        "hunt_location": request.location,
+        "hunt_job_type": request.job_type,
+        "hunt_experience": request.experience_level,
+        "hunt_extra_info": request.extra_info
+    }
+    
+    logging.info(f"Triggering Auto-Hunt mode: {request.mode} for {thread_id}")
+    result = agent_graph.invoke(update_data, config=config)
+    
+    return {"jobs": result.get("job_results", [])}
+
 @app.post("/api/upload")
 async def upload_resume(file: UploadFile = File(...)):
     if not file.filename.endswith(".pdf"):
@@ -68,10 +94,13 @@ async def upload_resume(file: UploadFile = File(...)):
     
     try:
         contents = await file.read()
-        # This will take a few seconds to extract, chunk, and embed
         process_and_store_pdf(contents)
         return {"status": "success", "message": "Resume uploaded and indexed successfully."}
     except Exception as e:
         logging.error(f"Error processing resume: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to process resume: {str(e)}")
+
+@app.get("/api/status")
+async def get_system_status():
+    return {"resume_loaded": is_resume_loaded()}
 
