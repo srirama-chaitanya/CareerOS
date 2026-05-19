@@ -18,6 +18,10 @@ class AgentState(TypedDict):
     hunt_experience: Optional[str]
     hunt_extra_info: Optional[str]
     job_results: Optional[List[Dict]]
+    outreach_target_jd: Optional[str]
+    outreach_subject: Optional[str]
+    outreach_draft: Optional[str]
+    draft_modifier: Optional[str]
 
 # Load environment variables from .env
 load_dotenv()
@@ -118,26 +122,97 @@ Respond ONLY with valid JSON. Do not use markdown blocks."""
         "job_results": raw_jobs
     }
 
+def draft_pitch(state: AgentState):
+    target_jd = state.get("outreach_target_jd", "")
+    modifier = state.get("draft_modifier", "")
+    
+    resume_context = retrieve_context("LeetCode, CodeChef, competitive programming, MERN, React, Node.js, SQLite, Java architecture")
+    
+    # Tone and style guidelines based on modifiers
+    modifier_instruction = "Keep the email concise, punchy, and professional (around 150 words)."
+    if modifier == "shorter":
+        modifier_instruction = "Make the email extremely concise, under 100 words."
+    elif modifier == "more_technical":
+        modifier_instruction = "Make the email highly technical. Focus deeply on system design, clean SQLite database patterns, MERN architecture, and complex engineering metrics."
+        
+    system_prompt = f"""You are an elite Tech PR Agent writing a cold outreach email from the first-person perspective of the candidate.
+You MUST write as if you are the developer himself (using 'I', 'my', 'me').
+
+TARGET JOB DESCRIPTION:
+{target_jd}
+
+DEVELOPER'S RESUME CONTEXT:
+{resume_context}
+
+STRICT FIREWALL RULES - YOU MUST FOLLOW THESE OR FAIL:
+1. YOU MUST write in the FIRST PERSON (e.g. "I am a backend engineer...", "My experience..."). Never write on behalf of someone else.
+2. YOU MUST actively highlight the developer's competitive programming stats (LeetCode/CodeChef ratings).
+3. YOU MUST highlight their MERN-lite (React, Node.js, SQLite) OR Java architecture experience. 
+4. DO NOT just list project names (e.g. "I worked on Chess Academy"). Instead, briefly describe the impact and architectural highlights of your projects (e.g., "I built a scalable Chess Academy using RBAC logic" or "I designed a responsive engine for TaxSafar"). Give the recruiter concrete clarity on what you built.
+5. YOU MUST completely IGNORE and OMIT any mention of CGPA, academic averages, or grades.
+6. YOU MUST NOT mention C++ in any capacity. NEVER write "C++".
+7. Avoid huge paragraphs. Keep it short, modern, and highly engaging.
+
+{modifier_instruction}
+
+Output your response ONLY as a valid JSON object with the following structure:
+{{
+  "subject": "A compelling, modern email subject line",
+  "body": "The complete email body, styled with line breaks, written in the first person."
+}}
+
+Do not wrap the JSON in markdown blocks like ```json. Respond ONLY with raw JSON."""
+
+    try:
+        draft_response = llm.invoke([HumanMessage(content=system_prompt)])
+        raw_json = draft_response.content.strip()
+        
+        # Strip markdown tags if LLM ignores instruction
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:-3]
+        elif raw_json.startswith("```"):
+            raw_json = raw_json[3:-3]
+            
+        parsed_draft = json.loads(raw_json.strip())
+        subject = parsed_draft.get("subject", "Software Engineering Opportunity")
+        body = parsed_draft.get("body", "")
+    except Exception as e:
+        print(f"Error parsing draft JSON: {e}")
+        subject = "Software Engineering Role"
+        body = draft_response.content.strip()
+    
+    return {
+        "status": "drafted",
+        "outreach_subject": subject,
+        "outreach_draft": body
+    }
+
 def router(state: AgentState):
-    if state.get("action") == "hunt":
+    action = state.get("action")
+    if action == "hunt":
         return "hunt_jobs"
+    elif action == "draft":
+        return "draft_pitch"
     return "analyze_profile"
 
 # Build graph
 workflow = StateGraph(AgentState)
 workflow.add_node("analyze_profile", analyze_profile)
 workflow.add_node("hunt_jobs", hunt_jobs)
+workflow.add_node("draft_pitch", draft_pitch)
 
 workflow.set_conditional_entry_point(
     router,
     {
         "hunt_jobs": "hunt_jobs",
+        "draft_pitch": "draft_pitch",
         "analyze_profile": "analyze_profile"
     }
 )
 
 workflow.add_edge("analyze_profile", END)
 workflow.add_edge("hunt_jobs", END)
+workflow.add_edge("draft_pitch", END)
 
 def get_graph(checkpointer):
     return workflow.compile(checkpointer=checkpointer)

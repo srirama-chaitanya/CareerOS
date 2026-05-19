@@ -3,6 +3,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
 import logging
+import os
+import base64
+from email.message import EmailMessage
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
 
 from db.database import get_checkpointer
 from agents.graph import get_graph
@@ -38,6 +43,16 @@ class HuntRequest(BaseModel):
     job_type: Optional[str] = ""
     experience_level: Optional[str] = ""
     extra_info: Optional[str] = ""
+
+class DraftRequest(BaseModel):
+    job_description: str
+    modifier: Optional[str] = ""
+
+class SendEmailRequest(BaseModel):
+    recipient_email: str
+    subject: str
+    body: str
+    access_token: str
 
 @app.post("/api/chat")
 async def chat(request: ChatRequest):
@@ -103,4 +118,54 @@ async def upload_resume(file: UploadFile = File(...)):
 @app.get("/api/status")
 async def get_system_status():
     return {"resume_loaded": is_resume_loaded()}
+
+@app.post("/api/draft")
+async def draft_email(request: DraftRequest):
+    thread_id = "user_1"
+    config = {"configurable": {"thread_id": thread_id}}
+    update_data = {
+        "action": "draft",
+        "outreach_target_jd": request.job_description,
+        "draft_modifier": request.modifier
+    }
+    
+    try:
+        app_graph = get_graph(checkpointer)
+        app_graph.update_state(config, update_data)
+        
+        final_state = None
+        for state in app_graph.stream(update_data, config=config):
+            final_state = state
+            
+        if final_state and 'draft_pitch' in final_state:
+            draft_node = final_state['draft_pitch']
+            return {
+                "subject": draft_node.get("outreach_subject", "Software Engineering Opportunity"),
+                "body": draft_node.get("outreach_draft", "")
+            }
+            
+        return {"subject": "", "body": "Error generating draft."}
+    except Exception as e:
+        logging.error(f"Error drafting: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/send_email")
+async def send_email(request: SendEmailRequest):
+    try:
+        creds = Credentials(token=request.access_token)
+        service = build('gmail', 'v1', credentials=creds)
+        
+        message = EmailMessage()
+        message.set_content(request.body)
+        message['To'] = request.recipient_email
+        message['Subject'] = request.subject
+        
+        encoded_message = base64.urlsafe_b64encode(message.as_bytes()).decode()
+        create_message = {'raw': encoded_message}
+        
+        send_message = (service.users().messages().send(userId="me", body=create_message).execute())
+        return {"status": "success", "message_id": send_message["id"]}
+    except Exception as e:
+        logging.error(f"Error sending email: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
