@@ -1,215 +1,241 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
-export default function AutoHunt() {
-  const [mode, setMode] = useState('auto')
-  const [searchQuery, setSearchQuery] = useState('')
-  const [location, setLocation] = useState('Remote')
-  const [jobType, setJobType] = useState('FULLTIME')
-  const [experienceLevel, setExperienceLevel] = useState('')
-  const [extraInfo, setExtraInfo] = useState('')
-  
-  const [loading, setLoading] = useState(false)
-  const [jobs, setJobs] = useState([])
-  const [error, setError] = useState('')
+export default function AutoHunt({ 
+  activeResumeId, 
+  activeResumeLabel, 
+  refreshActiveResume,
+  searchQuery,
+  setSearchQuery,
+  location,
+  setLocation,
+  jobType,
+  setJobType,
+  experienceLevel,
+  setExperienceLevel,
+  extraInfo,
+  setExtraInfo,
+  loading,
+  jobs,
+  error,
+  setError,
+  handleSearch 
+}) {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 4
 
-  const handleSearch = async () => {
+  const triggerSearch = () => {
     setCurrentPage(1)
-    if (mode === 'manual' && !searchQuery.trim()) {
-      setError('Please enter a target role to search.')
-      return
-    }
-
-    setLoading(true)
-    setError('')
-    
-    try {
-      const res = await fetch('http://localhost:8000/api/hunt', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mode: mode,
-          query: searchQuery,
-          location: location,
-          job_type: jobType,
-          experience_level: experienceLevel,
-          extra_info: extraInfo
-        })
-      })
-      const data = await res.json()
-      if (res.ok) {
-        setJobs(data.jobs || [])
-      } else {
-        setError(data.detail || 'Failed to fetch jobs.')
-      }
-    } catch (err) {
-      console.error(err)
-      setError('Network error. Backend might be unreachable.')
-    } finally {
-      setLoading(false)
+    if (handleSearch) {
+      handleSearch()
     }
   }
 
+  const getContextMessage = () => {
+    if (!activeResumeId) {
+      return (
+        <div className="flex items-center space-x-2 text-red-400/80">
+          <span className="w-1.5 h-1.5 bg-red-500 rounded-full"></span>
+          <span>No active resume loaded. Please select a profile in the Engine Room.</span>
+        </div>
+      )
+    }
+
+    const trimmedQuery = searchQuery.trim()
+    const trimmedLabel = activeResumeLabel.trim()
+
+    if (!trimmedQuery) {
+      return (
+        <div className="flex items-center space-x-2 text-yellow-400/80">
+          <span className="w-1.5 h-1.5 bg-yellow-500 rounded-full animate-pulse"></span>
+          <span>Search query is empty. Input a custom title or visit the Engine Room.</span>
+        </div>
+      )
+    }
+
+    if (trimmedQuery.toLowerCase() === trimmedLabel.toLowerCase()) {
+      return (
+        <div className="flex items-center space-x-2 text-white/40">
+          <span className="flex h-2 w-2 relative">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
+          </span>
+          <span>Active Context: Bounded to <strong>{activeResumeLabel}</strong> profile.</span>
+        </div>
+      )
+    }
+
+    return (
+      <div className="flex items-center space-x-2 text-blue-450/90">
+        <span className="flex h-2 w-2 relative">
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-400"></span>
+        </span>
+        <span>Manual Override: Searching <strong>"{searchQuery}"</strong></span>
+      </div>
+    )
+  }
+
   const getScoreColor = (score) => {
-    if (score >= 80) return 'text-green-400 bg-green-500/10 border-green-500/20'
+    if (score >= 80) return 'text-green-400 bg-green-500/10 border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.05)]'
     if (score >= 60) return 'text-yellow-400 bg-yellow-500/10 border-yellow-500/20'
     return 'text-red-400 bg-red-500/10 border-red-500/20'
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-8">
-      <div className="mb-10 text-center">
-        <h2 className="text-4xl font-light text-white tracking-tight">Auto-Hunt Command</h2>
+    <div className="max-w-6xl mx-auto py-12 px-8 animate-in fade-in duration-500">
+      <div className="mb-12 text-center">
+        <h2 className="text-4xl font-light text-white tracking-tight">Scout Command Center</h2>
         <p className="text-white/50 mt-3 text-sm max-w-2xl mx-auto">
-          Deploy the Scout Agent to search the live market. It will cross-reference every job against your RAG resume to calculate a strict architectural fit.
+          Deploy the AI Scout to find live job matches. Specify your target in the Smart Search Bar—the agent automatically executes the search and runs a deep RAG match analysis against your active profile.
         </p>
       </div>
 
-      {/* Mode Toggle & Input */}
-      <div className="max-w-3xl mx-auto mb-12">
-        <div className="flex p-1 bg-white/5 rounded-xl border border-white/10 mb-8">
-          <button
-            onClick={() => setMode('auto')}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${mode === 'auto' ? 'bg-blue-600 text-white shadow-lg' : 'text-white/50 hover:text-white'}`}
-          >
-            Auto Mode (RAG Driven)
-          </button>
-          <button
-            onClick={() => setMode('manual')}
-            className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-all ${mode === 'manual' ? 'bg-zinc-800 text-white shadow-lg border border-white/10' : 'text-white/50 hover:text-white'}`}
-          >
-            Manual Search
-          </button>
-        </div>
+      {/* Unified Smart Search Section */}
+      <div className="max-w-3xl mx-auto mb-16 space-y-6">
+        
+        <div className="relative group">
+          <div className="absolute inset-0 bg-blue-500/5 rounded-3xl blur-xl group-hover:bg-blue-500/10 transition-all duration-500"></div>
+          
+          <div className="relative bg-black/45 border border-white/10 rounded-2xl p-6 backdrop-blur-md shadow-2xl">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="relative flex-1">
+                <span className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-white/30">
+                  🔍
+                </span>
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Target Job Title (e.g., Backend Developer)"
+                  className="w-full bg-black/30 border border-white/10 rounded-xl pl-11 pr-4 py-4 text-white text-base placeholder-white/30 focus:outline-none focus:border-blue-500/50 transition-colors"
+                />
+              </div>
+              <button
+                onClick={triggerSearch}
+                disabled={loading}
+                className={`px-8 py-4 rounded-xl font-semibold tracking-wide transition-all whitespace-nowrap text-sm flex items-center justify-center gap-2 ${
+                  loading 
+                    ? 'bg-blue-600/50 text-white/50 cursor-not-allowed' 
+                    : 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.35)]'
+                }`}
+              >
+                {loading && <span className="w-4 h-4 border-2 border-white/35 border-t-white rounded-full animate-spin"></span>}
+                {loading ? 'Scouting Market...' : 'Deploy Scout'}
+              </button>
+            </div>
 
-        <div className="bg-white/5 border border-white/10 rounded-2xl p-6 mb-6">
-          <h3 className="text-white/70 font-medium mb-4 text-sm uppercase tracking-wider">Universal Filters</h3>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <div>
-              <label className="block text-xs text-white/50 mb-2">Location Preference</label>
+            {/* Restored Advanced Filters Panel inside UI Card */}
+            <div className="mt-6 pt-6 border-t border-white/5 grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider font-bold text-white/40 mb-2">Location Preference</label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="e.g. Remote, San Francisco"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs placeholder-white/20 focus:outline-none focus:border-blue-500/50 transition-colors"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider font-bold text-white/40 mb-2">Employment Type</label>
+                <select
+                  value={jobType}
+                  onChange={(e) => setJobType(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none focus:border-blue-500/50 transition-colors appearance-none"
+                >
+                  <option value="FULLTIME">Full-time</option>
+                  <option value="CONTRACTOR">Contract</option>
+                  <option value="INTERN">Internship</option>
+                  <option value="PARTTIME">Part-time</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-[10px] uppercase tracking-wider font-bold text-white/40 mb-2">Experience Level</label>
+                <select
+                  value={experienceLevel}
+                  onChange={(e) => setExperienceLevel(e.target.value)}
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none focus:border-blue-500/50 transition-colors appearance-none"
+                >
+                  <option value="">Any Level</option>
+                  <option value="Entry Level">Entry Level</option>
+                  <option value="Mid Level">Mid Level</option>
+                  <option value="Senior">Senior</option>
+                  <option value="Lead">Lead / Principal</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="mt-4">
+              <label className="block text-[10px] uppercase tracking-wider font-bold text-white/40 mb-2">Custom AI Agent Rules & Constraints</label>
               <input
                 type="text"
-                value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="e.g. Remote, San Francisco, London"
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-500/50 transition-colors"
+                value={extraInfo}
+                onChange={(e) => setExtraInfo(e.target.value)}
+                placeholder="e.g. Only Series A startups, Exclude Fintech, Remote only"
+                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs placeholder-white/20 focus:outline-none focus:border-blue-500/50 transition-colors"
               />
             </div>
-            <div>
-              <label className="block text-xs text-white/50 mb-2">Employment Type</label>
-              <select
-                value={jobType}
-                onChange={(e) => setJobType(e.target.value)}
-                className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 transition-colors appearance-none"
-              >
-                <option value="FULLTIME">Full-time</option>
-                <option value="CONTRACTOR">Contract</option>
-                <option value="INTERN">Internship</option>
-                <option value="PARTTIME">Part-time</option>
-              </select>
+            
+            {/* Active Resume Context Info */}
+            <div className="mt-6 pt-4 border-t border-white/5 flex items-center justify-between text-xs">
+              {getContextMessage()}
+              
+              <span className="text-white/30 hidden md:inline">Smart search autofills title automatically</span>
             </div>
           </div>
-
-          {mode === 'manual' && (
-            <div className="animate-in fade-in slide-in-from-top-2 border-t border-white/10 pt-6">
-              <h3 className="text-white/70 font-medium mb-4 text-sm uppercase tracking-wider">Manual Target Parameters</h3>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="md:col-span-2">
-                  <label className="block text-xs text-white/50 mb-2">Target Role</label>
-                  <input
-                    type="text"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="e.g. Senior Frontend Developer React"
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-500/50 transition-colors"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-white/50 mb-2">Experience Level</label>
-                  <select
-                    value={experienceLevel}
-                    onChange={(e) => setExperienceLevel(e.target.value)}
-                    className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm focus:outline-none focus:border-blue-500/50 transition-colors appearance-none"
-                  >
-                    <option value="">Any Level</option>
-                    <option value="Entry Level">Entry Level</option>
-                    <option value="Mid Level">Mid Level</option>
-                    <option value="Senior">Senior</option>
-                    <option value="Lead">Lead / Manager</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {mode === 'auto' && (
-            <div className="animate-in fade-in slide-in-from-top-2 border-t border-white/10 pt-6">
-              <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 flex items-start space-x-3">
-                <svg className="w-5 h-5 text-blue-400 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                <div>
-                  <h4 className="text-blue-300 font-medium text-sm">AI Agent Active</h4>
-                  <p className="text-blue-200/60 text-xs mt-1">The LangGraph Scout will read your resume to determine the most optimal Target Role and Experience Level automatically, combining them with your Universal Filters above.</p>
-                </div>
-              </div>
-            </div>
-          )}
         </div>
 
-        <div className="flex space-x-4">
-          <input
-            type="text"
-            value={extraInfo}
-            onChange={(e) => setExtraInfo(e.target.value)}
-            placeholder="Any extra info? (e.g. 'Only Series A startups', 'Exclude FinTech')"
-            className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-white/30 focus:outline-none focus:border-blue-500/50 transition-colors"
-          />
-          <button
-            onClick={handleSearch}
-            disabled={loading}
-            className={`px-8 py-3 rounded-xl font-semibold tracking-wide transition-all whitespace-nowrap ${
-              loading ? 'bg-blue-600/50 text-white/50 cursor-not-allowed' : 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.3)]'
-            }`}
-          >
-            {loading ? 'Scouting...' : 'Initiate Job Hunt'}
-          </button>
-        </div>
-
-        {error && <p className="text-red-400 text-sm mt-4 text-center">{error}</p>}
+        {error && (
+          <div className="p-4 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 text-xs text-center animate-in slide-in-from-top-2">
+            ⚠️ {error}
+          </div>
+        )}
       </div>
 
-      {/* Job Grid */}
+      {/* Job Grid Results */}
       {jobs.length > 0 && (
-        <div className="animate-in fade-in slide-in-from-bottom-8">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
             {jobs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((job, idx) => (
-              <div key={idx} className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 transition-colors flex flex-col">
-                <div className="flex justify-between items-start mb-4">
-                  <div>
-                    <h3 className="text-xl font-semibold text-white">{job.job_title}</h3>
-                    <p className="text-sm text-white/60 mt-1">{job.employer_name} • {job.job_city ? `${job.job_city}, ${job.job_country}` : 'Location NA'} {job.job_is_remote && '• Remote'}</p>
+              <div 
+                key={idx} 
+                className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300 flex flex-col justify-between group"
+              >
+                <div>
+                  <div className="flex justify-between items-start mb-4">
+                    <div>
+                      <h3 className="text-xl font-semibold text-white tracking-tight group-hover:text-blue-400 transition-colors">
+                        {job.job_title}
+                      </h3>
+                      <p className="text-sm text-white/50 mt-1">
+                        {job.employer_name} • {job.job_city ? `${job.job_city}, ${job.job_country}` : 'Location NA'} {job.job_is_remote && '• Remote'}
+                      </p>
+                    </div>
+                    <div className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold tracking-wider ${getScoreColor(job.match_score)}`}>
+                      {job.match_score}% MATCH
+                    </div>
                   </div>
-                  <div className={`px-3 py-1.5 rounded-lg border text-sm font-bold ${getScoreColor(job.match_score)}`}>
-                    {job.match_score}% Match
+                  
+                  <div className="bg-black/30 rounded-xl p-4 mb-6 border border-white/5 relative">
+                    <div className="absolute top-3 left-4 text-xs font-bold text-white/20 uppercase tracking-widest pointer-events-none">Agent Reasoning</div>
+                    <p className="text-sm text-white/80 leading-relaxed italic pt-4">
+                      "{job.match_reason}"
+                    </p>
                   </div>
-                </div>
-                
-                <div className="bg-black/30 rounded-xl p-4 mb-5 border border-white/5">
-                  <p className="text-sm text-white/80 leading-relaxed italic">
-                    "{job.match_reason}"
-                  </p>
                 </div>
 
-                <div className="mt-auto flex space-x-3">
+                <div className="flex space-x-3 pt-2">
                   <a 
                     href={job.job_apply_link} 
                     target="_blank" 
                     rel="noopener noreferrer"
-                    className="flex-1 text-center bg-white/10 hover:bg-white/20 text-white text-sm font-medium py-2 rounded-lg transition-colors border border-white/5"
+                    className="flex-1 text-center bg-white/5 hover:bg-white/10 text-white text-sm font-semibold py-3 rounded-xl transition-all border border-white/10"
                   >
-                    View Job
+                    View Job Posting
                   </a>
-                  <button className="flex-1 bg-indigo-600/20 hover:bg-indigo-600/40 border border-indigo-500/30 text-indigo-300 text-sm font-medium py-2 rounded-lg transition-colors">
+                  <button className="flex-1 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/20 text-blue-400 text-sm font-semibold py-3 rounded-xl transition-all">
                     Draft Outreach
                   </button>
                 </div>
@@ -217,21 +243,21 @@ export default function AutoHunt() {
             ))}
           </div>
 
-          <div className="flex justify-center items-center space-x-4">
+          <div className="flex justify-center items-center space-x-4 border-t border-white/5 pt-8">
             <button 
               disabled={currentPage === 1}
               onClick={() => setCurrentPage(prev => prev - 1)}
-              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-medium"
             >
               Previous
             </button>
-            <span className="text-white/60 text-sm">
+            <span className="text-white/40 text-xs font-semibold">
               Page {currentPage} of {Math.min(5, Math.ceil(jobs.length / itemsPerPage))}
             </span>
             <button 
               disabled={currentPage >= Math.ceil(jobs.length / itemsPerPage) || currentPage >= 5}
               onClick={() => setCurrentPage(prev => prev + 1)}
-              className="px-4 py-2 bg-white/5 border border-white/10 rounded-lg text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="px-5 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white/70 hover:bg-white/10 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition-all text-xs font-medium"
             >
               Next
             </button>

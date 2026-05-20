@@ -4,6 +4,7 @@ from langchain_core.messages import SystemMessage, HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from db.chroma_db import retrieve_context
 from tools.jsearch import search_jobs
+from db.database import db_get_active_resume_id, db_get_all_resumes
 import json
 import os
 from dotenv import load_dotenv
@@ -11,12 +12,12 @@ from dotenv import load_dotenv
 class AgentState(TypedDict):
     status: str
     action: Optional[str]
-    hunt_mode: Optional[str]
-    hunt_query: Optional[str]
-    hunt_location: Optional[str]
-    hunt_job_type: Optional[str]
-    hunt_experience: Optional[str]
-    hunt_extra_info: Optional[str]
+    search_string: Optional[str]
+    active_resume_id: Optional[str]
+    location: Optional[str]
+    job_type: Optional[str]
+    experience_level: Optional[str]
+    extra_info: Optional[str]
     job_results: Optional[List[Dict]]
     outreach_target_jd: Optional[str]
     outreach_subject: Optional[str]
@@ -40,41 +41,45 @@ def analyze_profile(state: AgentState):
     }
 
 def hunt_jobs(state: AgentState):
-    mode = state.get("hunt_mode", "auto")
-    manual_query = state.get("hunt_query", "")
-    location = state.get("hunt_location", "remote")
-    job_type = state.get("hunt_job_type", "full-time")
-    experience = state.get("hunt_experience", "")
-    extra_info = state.get("hunt_extra_info", "")
+    search_string = state.get("search_string", "")
+    active_resume_id = state.get("active_resume_id")
+    location = state.get("location", "remote")
+    job_type = state.get("job_type", "full-time")
+    experience_level = state.get("experience_level", "")
+    extra_info = state.get("extra_info", "")
     
-    resume_context = retrieve_context("engineering experience, backend development, full-stack projects, competitive programming, skills")
+    # Fallback to SQLite active resume ID if not passed
+    if not active_resume_id:
+        active_id = db_get_active_resume_id()
+        if active_id:
+            active_resume_id = active_id
+            
+    # Retrieve active resume context for RAG match scoring (scoped to active_resume_id)
+    resume_context = retrieve_context(
+        "engineering experience, backend development, full-stack projects, competitive programming, skills",
+        resume_id=active_resume_id
+    )
     
-    extra_instruction = f"\nCandidate also provided this extra requirement: '{extra_info}'. Factor this into the query and match score." if extra_info else ""
+    # Build search query dynamically combining filters
+    search_query = f"{experience_level} {search_string} {job_type}".strip()
     
-    if mode == "auto":
-        query_prompt = f"""You are an elite tech recruiter. 
-Read this candidate's resume context and extract their ideal Target Role and Experience Level based on their skills and history.
-Output ONLY the job title search string (e.g. "Senior Python Backend Engineer" or "Frontend Intern"). Do not include location.
-{extra_instruction}
-
-RESUME CONTEXT:
-{resume_context}"""
-        query_response = llm.invoke([HumanMessage(content=query_prompt)])
-        search_term = query_response.content.strip()
-        search_term = f"{search_term} {job_type}"
-    else:
-        search_term = f"{experience} {manual_query} {job_type}".strip()
-        
-    raw_jobs = search_jobs(search_term, location)
+    # Execute the JSearch query directly, bypassing any query-generation LLM call
+    raw_jobs = search_jobs(search_query, location)
     
     if not raw_jobs:
         return {"status": "completed", "job_results": []}
         
-    match_prompt = f"""You are an elite career strategist.
+    extra_instruction = f"\nCandidate also provided this extra requirement: '{extra_info}'. Factor this into the match score." if extra_info else ""
+        
+    match_prompt = f"""You are an elite tech career strategist.
 I will give you a candidate's RESUME CONTEXT and a list of JOB DESCRIPTIONS.
 For each job, compare the requirements to the candidate's skills.
 Calculate a Match Score (0-100) and provide a 1-sentence reasoning explaining why it's a good or bad fit.
-DO NOT MENTION CGPA OR GRADES. Focus on tech stack fit.
+
+STRICT FIREWALL RULES - YOU MUST FOLLOW THESE OR FAIL:
+1. YOU MUST actively highlight the candidate's competitive programming stats (LeetCode 1900+ Knight, CodeChef 3-star) and heavy backend architecture experience using Java and the MERN-lite stack (React, Node.js, Express, SQLite) where appropriate.
+2. YOU MUST completely ignore and omit any mention of CGPA, academic averages, or grades.
+3. YOU MUST NOT mention C++ in any capacity under any circumstances. Treat it as completely non-existent.
 {extra_instruction}
 
 RESUME CONTEXT:
@@ -121,6 +126,7 @@ Respond ONLY with valid JSON. Do not use markdown blocks."""
         "status": "completed",
         "job_results": raw_jobs
     }
+
 
 def draft_pitch(state: AgentState):
     target_jd = state.get("outreach_target_jd", "")

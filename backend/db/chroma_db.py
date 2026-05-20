@@ -26,7 +26,7 @@ def is_resume_loaded() -> bool:
     except Exception:
         return False
 
-def process_and_store_pdf(file_bytes: bytes):
+def process_and_store_pdf(file_bytes: bytes, resume_id: str):
     # Write to a temp file so PyPDFLoader can read it
     with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
         temp_file.write(file_bytes)
@@ -39,16 +39,24 @@ def process_and_store_pdf(file_bytes: bytes):
         text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
         chunks = text_splitter.split_documents(docs)
 
-        # Clear existing collection to ensure we only have the latest resume
+        collection = get_collection()
+        
+        # Delete existing chunks for this specific resume_id to prevent duplicates on overwrite
         try:
-            chroma_client.delete_collection("resume_collection")
+            collection.delete(where={"resume_id": resume_id})
         except Exception:
             pass
-        collection = chroma_client.create_collection("resume_collection")
 
         texts = [chunk.page_content for chunk in chunks]
-        metadatas = [chunk.metadata for chunk in chunks]
-        ids = [f"chunk_{i}" for i in range(len(chunks))]
+        
+        # Keep original loader metadata (like page number) but enrich it with resume_id
+        metadatas = []
+        for chunk in chunks:
+            meta = chunk.metadata.copy() if chunk.metadata else {}
+            meta["resume_id"] = resume_id
+            metadatas.append(meta)
+            
+        ids = [f"{resume_id}_{i}" for i in range(len(chunks))]
 
         # Get embeddings individually to bypass batching bugs in the wrapper
         embedded_texts = []
@@ -62,19 +70,28 @@ def process_and_store_pdf(file_bytes: bytes):
             ids=ids
         )
         
-        logging.info(f"Stored {len(chunks)} chunks in ChromaDB")
+        logging.info(f"Stored {len(chunks)} chunks in ChromaDB for resume_id {resume_id}")
     finally:
         os.remove(temp_path)
 
-def retrieve_context(query: str, n_results: int = 5) -> str:
+def retrieve_context(query: str, n_results: int = 5, resume_id: str = None) -> str:
     collection = get_collection()
     if collection.count() == 0:
         return "No resume data available."
         
+    # Dynamically find the active resume if resume_id is not explicitly provided
+    if not resume_id:
+        from db.database import db_get_active_resume_id
+        resume_id = db_get_active_resume_id()
+        
+    if not resume_id:
+        return "No active resume selected."
+        
     query_embedding = embeddings.embed_query(query)
     results = collection.query(
         query_embeddings=[query_embedding],
-        n_results=n_results
+        n_results=n_results,
+        where={"resume_id": resume_id}
     )
     
     if results and results.get('documents') and results['documents'][0]:
@@ -82,3 +99,12 @@ def retrieve_context(query: str, n_results: int = 5) -> str:
         return context
     
     return "No relevant resume data found."
+
+def delete_resume_vectors(resume_id: str):
+    try:
+        collection = get_collection()
+        collection.delete(where={"resume_id": resume_id})
+        logging.info(f"Purged ChromaDB vectors for resume_id {resume_id}")
+    except Exception as e:
+        logging.error(f"Error purging ChromaDB vectors for resume_id {resume_id}: {str(e)}")
+
