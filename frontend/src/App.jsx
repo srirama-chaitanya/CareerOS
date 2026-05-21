@@ -119,7 +119,7 @@ function App() {
       case 'outreach':
         return <ColdOutreacher />
       case 'interview':
-        return <MockInterviewer />
+        return <MockInterviewer activeResumeId={activeResumeId} />
       default:
         return <EngineRoom onActiveResumeChange={refreshActiveResume} />
     }

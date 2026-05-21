@@ -1,6 +1,6 @@
 from typing import TypedDict, Optional, List, Dict
 from langgraph.graph import StateGraph, START, END
-from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from db.chroma_db import retrieve_context
 from tools.jsearch import search_jobs
@@ -23,6 +23,8 @@ class AgentState(TypedDict):
     outreach_subject: Optional[str]
     outreach_draft: Optional[str]
     draft_modifier: Optional[str]
+    target_company: Optional[str]
+    chat_history: Optional[list]
 
 # Load environment variables from .env
 load_dotenv()
@@ -193,12 +195,80 @@ Do not wrap the JSON in markdown blocks like ```json. Respond ONLY with raw JSON
         "outreach_draft": body
     }
 
+def interviewer_node(state: AgentState):
+    active_resume_id = state.get("active_resume_id")
+    target_company = state.get("target_company", "none").lower()
+    chat_history = state.get("chat_history", [])
+    
+    # Data Fetch: Query ChromaDB
+    resume_context = retrieve_context("technical skills, architecture, projects, competitive programming", resume_id=active_resume_id)
+    
+    playbook_persona = ""
+    playbook_topics = []
+    
+    if target_company != "none":
+        # Load playbook from JSON
+        playbook_path = os.path.join(os.path.dirname(__file__), "..", "company_playbooks.json")
+        try:
+            with open(playbook_path, "r") as f:
+                playbooks = json.load(f)
+                
+            if target_company in playbooks:
+                playbook_persona = playbooks[target_company].get("interview_style", "")
+                playbook_topics = playbooks[target_company].get("favorite_topics", [])
+        except Exception as e:
+            print(f"Error loading company playbook: {e}")
+            
+    # Dual-Mode Routing
+    if target_company == "none":
+        interviewer_persona = "You are a Rigorous Staff Engineer who ruthlessly attacks the architectural choices found in the candidate's resume."
+        topics_context = ""
+    else:
+        interviewer_persona = f"You are an interviewer at {target_company.capitalize()}. Your interview style is: {playbook_persona}."
+        topics_context = f"\nFavorite Topics for this company: {', '.join(playbook_topics)}\n"
+
+    system_prompt = f"""{interviewer_persona}
+
+CANDIDATE'S RESUME CONTEXT:
+{resume_context}
+{topics_context}
+GLOBAL SYSTEM FIREWALLS:
+- YOU MUST actively weave the candidate's 1900+ LeetCode rating (Knight), CodeChef 3-star status, and heavy Java/MERN-lite architecture into the scenario.
+- STRICT BLACKLIST: You MUST completely ignore and omit any mention of CGPA, academic averages, or C++ experience, even if they appear in the RAG chunks. Do not ever bring them up.
+
+Analyze the chat_history.
+- If empty (The Intro): Start like a real human interviewer. Keep it extremely brief (1-2 sentences maximum). Greet them warmly, introduce yourself as the hiring manager at the target company, and ask a light icebreaker like "How is your day going?" or "Are you ready to get started?". DO NOT ask them to explain their projects, resume, or background yet. Let them respond to the icebreaker first.
+- The 40% (Deep Follow-ups): If the candidate just answered, your next question MUST aggressively attack the specific edge cases and vulnerabilities in their previous typed answer.
+- The 60% (Playbook Pivots): If a topic is exhausted after 1-2 follow-ups, pivot to a brand new topic from the playbook.
+- General Rule: Ask only ONE question at a time. Ensure your communication is extremely articulate, clear, and highly technical when probing."""
+
+    messages = [SystemMessage(content=system_prompt)]
+    
+    for msg in chat_history:
+        if msg.get("role") == "user":
+            messages.append(HumanMessage(content=msg.get("content", "")))
+        elif msg.get("role") == "assistant":
+            messages.append(AIMessage(content=msg.get("content", "")))
+            
+    try:
+        response = llm.invoke(messages)
+        new_history = chat_history + [{"role": "assistant", "content": response.content.strip()}]
+        return {
+            "status": "interview_ready",
+            "chat_history": new_history
+        }
+    except Exception as e:
+        print(f"Error in interviewer node: {e}")
+        return {"status": "error"}
+
 def router(state: AgentState):
     action = state.get("action")
     if action == "hunt":
         return "hunt_jobs"
     elif action == "draft":
         return "draft_pitch"
+    elif action == "interview":
+        return "interviewer_node"
     return "analyze_profile"
 
 # Build graph
@@ -206,12 +276,14 @@ workflow = StateGraph(AgentState)
 workflow.add_node("analyze_profile", analyze_profile)
 workflow.add_node("hunt_jobs", hunt_jobs)
 workflow.add_node("draft_pitch", draft_pitch)
+workflow.add_node("interviewer_node", interviewer_node)
 
 workflow.set_conditional_entry_point(
     router,
     {
         "hunt_jobs": "hunt_jobs",
         "draft_pitch": "draft_pitch",
+        "interviewer_node": "interviewer_node",
         "analyze_profile": "analyze_profile"
     }
 )
@@ -219,6 +291,62 @@ workflow.set_conditional_entry_point(
 workflow.add_edge("analyze_profile", END)
 workflow.add_edge("hunt_jobs", END)
 workflow.add_edge("draft_pitch", END)
+workflow.add_edge("interviewer_node", END)
 
 def get_graph(checkpointer):
     return workflow.compile(checkpointer=checkpointer)
+
+async def stream_interview_response(active_resume_id: str, target_company: str, chat_history: list):
+    # Data Fetch: Query ChromaDB
+    resume_context = retrieve_context("technical skills, architecture, projects, competitive programming", resume_id=active_resume_id)
+    
+    playbook_persona = ""
+    playbook_topics = []
+    target_company_lower = target_company.lower()
+    
+    if target_company_lower != "none":
+        # Load playbook from JSON
+        playbook_path = os.path.join(os.path.dirname(__file__), "..", "company_playbooks.json")
+        try:
+            with open(playbook_path, "r") as f:
+                playbooks = json.load(f)
+                
+            if target_company_lower in playbooks:
+                playbook_persona = playbooks[target_company_lower].get("interview_style", "")
+                playbook_topics = playbooks[target_company_lower].get("favorite_topics", [])
+        except Exception as e:
+            print(f"Error loading company playbook: {e}")
+            
+    # Dual-Mode Routing
+    if target_company_lower == "none":
+        interviewer_persona = "You are a Rigorous Staff Engineer who ruthlessly attacks the architectural choices found in the candidate's resume."
+        topics_context = ""
+    else:
+        interviewer_persona = f"You are an interviewer at {target_company.capitalize()}. Your interview style is: {playbook_persona}."
+        topics_context = f"\nFavorite Topics for this company: {', '.join(playbook_topics)}\n"
+
+    system_prompt = f"""{interviewer_persona}
+
+CANDIDATE'S RESUME CONTEXT:
+{resume_context}
+{topics_context}
+GLOBAL SYSTEM FIREWALLS:
+- YOU MUST actively weave the candidate's 1900+ LeetCode rating (Knight), CodeChef 3-star status, and heavy Java/MERN-lite architecture into the scenario.
+- STRICT BLACKLIST: You MUST completely ignore and omit any mention of CGPA, academic averages, or C++ experience, even if they appear in the RAG chunks. Do not ever bring them up.
+
+Analyze the chat_history.
+- If empty (The Intro): Start like a real human interviewer. Keep it extremely brief (1-2 sentences maximum). Greet them warmly, introduce yourself as the hiring manager at the target company, and ask a light icebreaker like "How is your day going?" or "Are you ready to get started?". DO NOT ask them to explain their projects, resume, or background yet. Let them respond to the icebreaker first.
+- The 40% (Deep Follow-ups): If the candidate just answered, your next question MUST aggressively attack the specific edge cases and vulnerabilities in their previous typed answer.
+- The 60% (Playbook Pivots): If a topic is exhausted after 1-2 follow-ups, pivot to a brand new topic from the playbook.
+- General Rule: Ask only ONE question at a time. Ensure your communication is extremely articulate, clear, and highly technical when probing."""
+
+    messages = [SystemMessage(content=system_prompt)]
+    
+    for msg in chat_history:
+        if msg.get("role") == "user":
+            messages.append(HumanMessage(content=msg.get("content", "")))
+        elif msg.get("role") == "assistant":
+            messages.append(AIMessage(content=msg.get("content", "")))
+            
+    async for chunk in llm.astream(messages):
+        yield chunk.content

@@ -1,4 +1,5 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Form
+from fastapi import FastAPI, UploadFile, File, HTTPException, Form, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import List, Optional
@@ -18,7 +19,7 @@ from db.database import (
     db_delete_resume,
     db_get_active_resume_id
 )
-from agents.graph import get_graph
+from agents.graph import get_graph, stream_interview_response
 from db.chroma_db import process_and_store_pdf, is_resume_loaded
 
 
@@ -56,6 +57,12 @@ class HuntRequest(BaseModel):
 class DraftRequest(BaseModel):
     job_description: str
     modifier: Optional[str] = ""
+
+class InterviewChatRequest(BaseModel):
+    session_id: str
+    active_resume_id: str
+    target_company: str
+    new_message: str
 
 class SendEmailRequest(BaseModel):
     recipient_email: str
@@ -212,6 +219,53 @@ async def draft_email(request: DraftRequest):
     except Exception as e:
         logging.error(f"Error drafting: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+def save_chat_to_state(session_id: str, active_resume_id: str, target_company: str, chat_history: list):
+    try:
+        config = {"configurable": {"thread_id": session_id}}
+        update_data = {
+            "action": "interview",
+            "active_resume_id": active_resume_id,
+            "target_company": target_company,
+            "chat_history": chat_history
+        }
+        app_graph = get_graph(checkpointer)
+        app_graph.update_state(config, update_data)
+        logging.info(f"Asynchronously saved interview chat state to LangGraph for session {session_id}.")
+    except Exception as e:
+        logging.error(f"Error saving chat state: {e}")
+
+@app.post("/api/interview/chat")
+async def start_interview_chat(request: InterviewChatRequest, background_tasks: BackgroundTasks):
+    # 1. The Fast Read (Async SQLite)
+    config = {"configurable": {"thread_id": request.session_id}}
+    app_graph = get_graph(checkpointer)
+    state_snapshot = app_graph.get_state(config)
+    
+    current_history = []
+    if state_snapshot.values and "chat_history" in state_snapshot.values:
+        # LangGraph values might be None if uninitialized
+        current_history = state_snapshot.values.get("chat_history") or []
+        
+    full_history = current_history + [{"role": "user", "content": request.new_message}]
+    
+    async def event_stream():
+        full_response = ""
+        try:
+            generator = stream_interview_response(request.active_resume_id, request.target_company, full_history)
+            async for chunk in generator:
+                if chunk:
+                    full_response += chunk
+                    yield chunk
+            
+            final_history = full_history + [{"role": "assistant", "content": full_response}]
+            background_tasks.add_task(save_chat_to_state, request.session_id, request.active_resume_id, request.target_company, final_history)
+            
+        except Exception as e:
+            logging.error(f"Error during streaming: {e}")
+            yield f"\n[Error: {str(e)}]"
+            
+    return StreamingResponse(event_stream(), media_type="text/plain")
 
 @app.post("/api/send_email")
 async def send_email(request: SendEmailRequest):

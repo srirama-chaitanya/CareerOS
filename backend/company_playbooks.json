@@ -1,0 +1,29 @@
+{
+  "google": {
+    "interview_style": "Hostile, deeply technical, obsessed with algorithmic bounds",
+    "favorite_topics": [
+      "Distributed Systems",
+      "Dynamic Programming",
+      "Scalability",
+      "Graph Algorithms"
+    ]
+  },
+  "amazon": {
+    "interview_style": "Strictly behavioral, aggressive probing using the STAR method",
+    "favorite_topics": [
+      "Customer Obsession",
+      "Handling Failure",
+      "Deep Dive into Architecture",
+      "Leadership Principles"
+    ]
+  },
+  "meta": {
+    "interview_style": "Rapid-fire systems design, heavily focused on scale and react architecture tradeoffs",
+    "favorite_topics": [
+      "System Design for Scale",
+      "React Architecture",
+      "State Management",
+      "Concurrency and Event Loop"
+    ]
+  }
+}
