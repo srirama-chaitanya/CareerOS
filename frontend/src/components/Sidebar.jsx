@@ -7,7 +7,10 @@ export default function Sidebar({ activeModule, setActiveModule }) {
     { id: 'engine', label: '1. The Engine Room', short: 'E1' },
     { id: 'hunt', label: '2. Auto-Hunt Command', short: 'AH' },
     { id: 'outreach', label: '3. Cold Outreacher', short: 'CO' },
-    { id: 'interview', label: '4. Mock Interviewer', short: 'MI' }
+    { id: 'interview', label: '4. Mock Interviewer', short: 'MI' },
+    { id: 'strategist', label: '5. The Strategist', short: 'ST' },
+    { id: 'proving_grounds', label: '6. Proving Grounds', short: 'PG' },
+    { id: 'forge_history', label: '7. Forge Reviews', short: 'FR' }
   ]
 
   return (

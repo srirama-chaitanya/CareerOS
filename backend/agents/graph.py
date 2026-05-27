@@ -2,9 +2,8 @@ from typing import TypedDict, Optional, List, Dict
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
-from db.chroma_db import retrieve_context
 from tools.jsearch import search_jobs
-from db.database import db_get_active_resume_id, db_get_all_resumes
+from db.database import db_get_active_resume_id, db_get_all_resumes, db_get_resume_text
 import json
 import os
 from dotenv import load_dotenv
@@ -14,6 +13,7 @@ class AgentState(TypedDict):
     action: Optional[str]
     search_string: Optional[str]
     active_resume_id: Optional[str]
+    active_resume_text: Optional[str]
     location: Optional[str]
     job_type: Optional[str]
     experience_level: Optional[str]
@@ -25,13 +25,19 @@ class AgentState(TypedDict):
     draft_modifier: Optional[str]
     target_company: Optional[str]
     chat_history: Optional[list]
+    evaluation_result: Optional[dict]
+    user_preferences: Optional[dict]
+    study_plan: Optional[dict]
+    study_topic: Optional[str]
+    study_duration: Optional[int]
+    study_goal: Optional[str]
 
 # Load environment variables from .env
 load_dotenv()
 
-# We will use gemini-2.5-flash as the API key is now valid and this model is supported.
+# We will use gemini-2.5-flash as requested.
 api_key = os.environ.get("GOOGLE_API_KEY") or "missing_api_key"
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, google_api_key=api_key)
+llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, google_api_key=api_key, max_retries=0)
 
 SYSTEM_PROMPT = """You are an Elite Technical Career Strategist.
 Currently standing by for instructions."""
@@ -44,61 +50,40 @@ def analyze_profile(state: AgentState):
 
 def hunt_jobs(state: AgentState):
     search_string = state.get("search_string", "")
-    active_resume_id = state.get("active_resume_id")
+    active_resume_text = state.get("active_resume_text", "")
     location = state.get("location", "remote")
     job_type = state.get("job_type", "full-time")
     experience_level = state.get("experience_level", "")
-    extra_info = state.get("extra_info", "")
-    
-    # Fallback to SQLite active resume ID if not passed
-    if not active_resume_id:
-        active_id = db_get_active_resume_id()
-        if active_id:
-            active_resume_id = active_id
-            
-    # Retrieve active resume context for RAG match scoring (scoped to active_resume_id)
-    resume_context = retrieve_context(
-        "engineering experience, backend development, full-stack projects, competitive programming, skills",
-        resume_id=active_resume_id
-    )
     
     # Build search query dynamically combining filters
     search_query = f"{experience_level} {search_string} {job_type}".strip()
     
-    # Execute the JSearch query directly, bypassing any query-generation LLM call
+    # Execute the JSearch query directly
     raw_jobs = search_jobs(search_query, location)
     
     if not raw_jobs:
         return {"status": "completed", "job_results": []}
         
-    extra_instruction = f"\nCandidate also provided this extra requirement: '{extra_info}'. Factor this into the match score." if extra_info else ""
-        
     match_prompt = f"""You are an elite tech career strategist.
 I will give you a candidate's RESUME CONTEXT and a list of JOB DESCRIPTIONS.
-For each job, compare the requirements to the candidate's skills.
 Calculate a Match Score (0-100) and provide a 1-sentence reasoning explaining why it's a good or bad fit.
 
-STRICT FIREWALL RULES - YOU MUST FOLLOW THESE OR FAIL:
-1. YOU MUST actively highlight the candidate's competitive programming stats (LeetCode 1900+ Knight, CodeChef 3-star) and heavy backend architecture experience using Java and the MERN-lite stack (React, Node.js, Express, SQLite) where appropriate.
-2. YOU MUST completely ignore and omit any mention of CGPA, academic averages, or grades.
-3. YOU MUST NOT mention C++ in any capacity under any circumstances. Treat it as completely non-existent.
-{extra_instruction}
+STRICT FIREWALL RULES:
+1. Base the score STRICTLY on the provided RESUME CONTEXT. Do not hallucinate skills, and do not assume any background knowledge that is not explicitly written in the resume text.
+2. Output MUST be a raw, valid JSON array of objects. Do not use markdown blocks (e.g., ```json).
+
+EXPECTED JSON SCHEMA:
+[
+  {{"job_index": 0, "match_score": 85, "reason": "String - 1 concise sentence."}}
+]
 
 RESUME CONTEXT:
-{resume_context}
+{active_resume_text}
 
 JOBS TO EVALUATE:
 """
     for i, job in enumerate(raw_jobs):
         match_prompt += f"\n[Job {i}]\nTitle: {job['job_title']}\nCompany: {job['employer_name']}\nDescription: {job['job_description'][:500]}...\n"
-        
-    match_prompt += """
-Output your response as a valid JSON array of objects. Each object must have:
-"job_index": integer (matching the [Job i] above),
-"match_score": integer (0 to 100),
-"reason": string (1 sentence)
-
-Respond ONLY with valid JSON. Do not use markdown blocks."""
 
     try:
         match_response = llm.invoke([HumanMessage(content=match_prompt)])
@@ -134,7 +119,8 @@ def draft_pitch(state: AgentState):
     target_jd = state.get("outreach_target_jd", "")
     modifier = state.get("draft_modifier", "")
     
-    resume_context = retrieve_context("LeetCode, CodeChef, competitive programming, MERN, React, Node.js, SQLite, Java architecture")
+    active_id = db_get_active_resume_id()
+    resume_context = db_get_resume_text(active_id) if active_id else "No active resume profile context found."
     
     # Tone and style guidelines based on modifiers
     modifier_instruction = "Keep the email concise, punchy, and professional (around 150 words)."
@@ -200,8 +186,8 @@ def interviewer_node(state: AgentState):
     target_company = state.get("target_company", "none").lower()
     chat_history = state.get("chat_history", [])
     
-    # Data Fetch: Query ChromaDB
-    resume_context = retrieve_context("technical skills, architecture, projects, competitive programming", resume_id=active_resume_id)
+    # Data Fetch: Query SQLite for Direct Context
+    resume_context = db_get_resume_text(active_resume_id) if active_resume_id else "No active resume context available."
     
     playbook_persona = ""
     playbook_topics = []
@@ -221,26 +207,38 @@ def interviewer_node(state: AgentState):
             
     # Dual-Mode Routing
     if target_company == "none":
-        interviewer_persona = "You are a Rigorous Staff Engineer who ruthlessly attacks the architectural choices found in the candidate's resume."
-        topics_context = ""
+        topics_context = "General technical interview focusing on system design, databases, scaling, and competitive programming."
+        target_company_display = "None"
     else:
-        interviewer_persona = f"You are an interviewer at {target_company.capitalize()}. Your interview style is: {playbook_persona}."
-        topics_context = f"\nFavorite Topics for this company: {', '.join(playbook_topics)}\n"
+        topics_context = f"Favorite Topics: {', '.join(playbook_topics)}. style: {playbook_persona}"
+        target_company_display = target_company.capitalize()
 
-    system_prompt = f"""{interviewer_persona}
+    system_prompt = f"""You are Alex, a Senior Engineering Manager. You are conducting a technical interview for a software engineering role.
 
-CANDIDATE'S RESUME CONTEXT:
+CANDIDATE CONTEXT:
 {resume_context}
-{topics_context}
-GLOBAL SYSTEM FIREWALLS:
-- YOU MUST actively weave the candidate's 1900+ LeetCode rating (Knight), CodeChef 3-star status, and heavy Java/MERN-lite architecture into the scenario.
-- STRICT BLACKLIST: You MUST completely ignore and omit any mention of CGPA, academic averages, or C++ experience, even if they appear in the RAG chunks. Do not ever bring them up.
 
-Analyze the chat_history.
-- If empty (The Intro): Start like a real human interviewer. Keep it extremely brief (1-2 sentences maximum). Greet them warmly, introduce yourself as the hiring manager at the target company, and ask a light icebreaker like "How is your day going?" or "Are you ready to get started?". DO NOT ask them to explain their projects, resume, or background yet. Let them respond to the icebreaker first.
-- The 40% (Deep Follow-ups): If the candidate just answered, your next question MUST aggressively attack the specific edge cases and vulnerabilities in their previous typed answer.
-- The 60% (Playbook Pivots): If a topic is exhausted after 1-2 follow-ups, pivot to a brand new topic from the playbook.
-- General Rule: Ask only ONE question at a time. Ensure your communication is extremely articulate, clear, and highly technical when probing."""
+INTERVIEW PLAYBOOK & TOPICS:
+{topics_context}
+TARGET COMPANY: {target_company_display}
+
+YOUR DIRECTIVES:
+1. Persona & Tone: You are a sharp, experienced, and articulate human engineer. Speak naturally and directly. Absolutely DO NOT sound like an AI assistant. Do not use generic filler like "That's a great answer" or "Let's dive into the next topic." 
+2. The One-Question Rule: You MUST NEVER ask more than one question at a time. Keep your responses concise (2-4 sentences maximum).
+3. Adaptive Context: Base your questions strictly on the candidate's provided context. Do not invent details about their background.
+
+THE INTERVIEW FLOW (Analyze the chat history to determine your next move):
+- Phase 1: The Intro (If chat history is empty). 
+  Greet the candidate warmly but professionally. 
+  If TARGET COMPANY has a value, say exactly: "Hi, I'm Alex, an Engineering Manager here at {target_company_display}."
+  If TARGET COMPANY is empty, null, or 'None', say exactly: "Hi, I'm Alex, an Engineering Manager here at CareerOS."
+  Then add: "Thanks for making the time to chat today. How's your day going so far?" STOP THERE. Do not ask a technical question yet. Let them answer the icebreaker.
+- Phase 2: The Drill-Down (If the candidate just answered a technical question).
+  Do not just accept their answer and move on. Push back. Ask about edge cases, scalability, trade-offs, or potential points of failure in the exact architecture or logic they just described. 
+- Phase 3: The Pivot (If a topic is exhausted after 1-2 follow-ups).
+  Transition naturally to a brand new topic from the INTERVIEW PLAYBOOK & TOPICS. (e.g., "Makes sense. Let's shift gears for a minute and talk about your backend architecture...")
+
+Respond ONLY with your next conversational turn. Do not output internal thoughts or meta-text."""
 
     messages = [SystemMessage(content=system_prompt)]
     
@@ -261,6 +259,169 @@ Analyze the chat_history.
         print(f"Error in interviewer node: {e}")
         return {"status": "error"}
 
+def evaluate_interview(state: AgentState):
+    active_resume_text = state.get("active_resume_text", "")
+    target_company = state.get("target_company", "none").lower()
+    chat_history = state.get("chat_history", [])
+    
+    playbook_topics = []
+    if target_company != "none":
+        playbook_path = os.path.join(os.path.dirname(__file__), "..", "company_playbooks.json")
+        try:
+            with open(playbook_path, "r") as f:
+                playbooks = json.load(f)
+            if target_company in playbooks:
+                playbook_topics = playbooks[target_company].get("favorite_topics", [])
+        except Exception as e:
+            print(f"Error loading company playbook: {e}")
+            
+    if target_company == "none":
+        topics_context = "General technical interview focusing on system design, databases, scaling, and competitive programming."
+    else:
+        topics_context = f"Favorite Topics: {', '.join(playbook_topics)}."
+
+    # Format chat history transcript
+    transcript_lines = []
+    for msg in chat_history:
+        role = "Interviewer" if msg.get("role") == "assistant" else "Candidate"
+        content = msg.get("content", "")
+        transcript_lines.append(f"{role}: {content}")
+    transcript_str = "\n".join(transcript_lines)
+
+    system_prompt = f"""You are an elite Principal Engineer acting as an interview grader.
+The candidate has just completed a mock technical interview. I will provide their resume context, the company's evaluation playbook, and the complete transcript of their interview.
+
+YOUR DIRECTIVES:
+Evaluate the candidate's performance brutally but fairly.
+Identify exactly where they hesitated, what architectural blind spots they had, and what edge cases they failed to mention based on the transcript.
+
+STRICT FIREWALL RULES:
+1. Base the evaluation STRICTLY on the provided chat transcript and resume context. Do not hallucinate skills or assume background knowledge.
+2. Output MUST be a raw, valid JSON object following the schema below. Do not wrap the JSON in markdown formatting blocks (e.g., absolutely no ```json).
+
+JSON SCHEMA:
+{{
+  "final_score_out_of_100": 0,
+  "summary_feedback": "String - 2 to 3 sentences of high-level feedback",
+  "technical_strengths": ["String - Bullet points of what they got right"],
+  "critical_weaknesses": ["String - Specific technical failures (e.g., 'Failed to account for cache invalidation')"],
+  "missed_edge_cases": ["String - Specific edge cases they ignored"]
+}}
+
+CANDIDATE CONTEXT: 
+{active_resume_text}
+
+INTERVIEW PLAYBOOK: 
+{topics_context}
+
+INTERVIEW TRANSCRIPT: 
+{transcript_str}"""
+
+    try:
+        response = llm.invoke([HumanMessage(content=system_prompt)])
+        raw_json = response.content.strip()
+        
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:-3]
+        elif raw_json.startswith("```"):
+            raw_json = raw_json[3:-3]
+            
+        evaluation_data = json.loads(raw_json.strip())
+        
+        return {
+            "status": "evaluated",
+            "evaluation_result": evaluation_data
+        }
+    except Exception as e:
+        print(f"Error in evaluate_interview node: {e}")
+        return {
+            "status": "error",
+            "evaluation_result": {
+                "final_score_out_of_100": 0,
+                "summary_feedback": "Failed to parse grading evaluation.",
+                "technical_strengths": [],
+                "critical_weaknesses": [],
+                "missed_edge_cases": []
+            }
+        }
+
+def generate_study_plan(state: AgentState):
+    evaluation_result = state.get("evaluation_result", {})
+    user_preferences = state.get("user_preferences", {})
+    study_topic = state.get("study_topic")
+    study_duration = state.get("study_duration", 3)
+    study_goal = state.get("study_goal", "revision")
+    
+    if study_topic:
+        prompt_context = f"The user requested a custom study plan for the topic: '{study_topic}'. Their primary learning goal is: '{study_goal}'."
+        target_days = study_duration
+    else:
+        interview_evaluation_report = json.dumps(evaluation_result, indent=2)
+        user_preferences_str = json.dumps(user_preferences, indent=2)
+        prompt_context = f"""I will provide their evaluation report and their custom scheduling preferences.
+EVALUATION REPORT:
+{interview_evaluation_report}
+USER PREFERENCES:
+{user_preferences_str}"""
+        target_days = user_preferences.get("target_days", 3)
+
+    system_prompt = f"""You are "The Strategist", an elite AI engineering coach.
+{prompt_context}
+Generate a highly targeted Revision Plan that addresses the requirements while strictly adhering to their time constraints.
+
+STRICT FIREWALL RULES:
+1. Dynamic Scaling: The number of days in the `daily_schedule` array MUST perfectly match the {target_days} days requested.
+2. Action Over Theory: Core tasks must be execution-based (writing code, debugging). 
+3. Resource Hallucination Ban: Do NOT generate raw URLs for external resources. You must generate highly specific search queries that the user can plug into YouTube or Google.
+4. Output MUST be a raw, valid JSON object following the schema below. Do not wrap the JSON in markdown formatting blocks.
+
+JSON SCHEMA:
+{{
+  "plan_title": "String - A punchy title",
+  "duration_days": "Integer - Must match user preference",
+  "daily_schedule": [
+    {{
+      "day_number": 1,
+      "focus_area": "String",
+      "action_items": ["String - Specific, actionable study task scoped to their time limit"],
+      "recommended_resources": [
+        {{
+          "platform": "youtube | google",
+          "search_query": "String - Highly specific search terms (e.g., 'Node.js SQLite WAL mode concurrency tutorial')"
+        }}
+      ],
+      "evaluation_task": {{
+        "problem_title": "String",
+        "problem_statement": "String - A custom coding problem specifically evaluating this day's focus area"
+      }}
+    }}
+  ]
+}}"""
+
+    llm_creative = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2, google_api_key=api_key, max_retries=0)
+    
+    try:
+        response = llm_creative.invoke([HumanMessage(content=system_prompt)])
+        raw_json = response.content.strip()
+        
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:-3]
+        elif raw_json.startswith("```"):
+            raw_json = raw_json[3:-3]
+            
+        study_plan_data = json.loads(raw_json.strip())
+        
+        return {
+            "status": "planned",
+            "study_plan": study_plan_data
+        }
+    except Exception as e:
+        print(f"Error in generate_study_plan node: {e}")
+        return {
+            "status": "error",
+            "study_plan": {}
+        }
+
 def router(state: AgentState):
     action = state.get("action")
     if action == "hunt":
@@ -269,6 +430,10 @@ def router(state: AgentState):
         return "draft_pitch"
     elif action == "interview":
         return "interviewer_node"
+    elif action == "evaluate":
+        return "evaluate_interview"
+    elif action == "plan":
+        return "generate_study_plan"
     return "analyze_profile"
 
 # Build graph
@@ -277,6 +442,8 @@ workflow.add_node("analyze_profile", analyze_profile)
 workflow.add_node("hunt_jobs", hunt_jobs)
 workflow.add_node("draft_pitch", draft_pitch)
 workflow.add_node("interviewer_node", interviewer_node)
+workflow.add_node("evaluate_interview", evaluate_interview)
+workflow.add_node("generate_study_plan", generate_study_plan)
 
 workflow.set_conditional_entry_point(
     router,
@@ -284,6 +451,8 @@ workflow.set_conditional_entry_point(
         "hunt_jobs": "hunt_jobs",
         "draft_pitch": "draft_pitch",
         "interviewer_node": "interviewer_node",
+        "evaluate_interview": "evaluate_interview",
+        "generate_study_plan": "generate_study_plan",
         "analyze_profile": "analyze_profile"
     }
 )
@@ -292,14 +461,13 @@ workflow.add_edge("analyze_profile", END)
 workflow.add_edge("hunt_jobs", END)
 workflow.add_edge("draft_pitch", END)
 workflow.add_edge("interviewer_node", END)
+workflow.add_edge("evaluate_interview", END)
+workflow.add_edge("generate_study_plan", END)
 
 def get_graph(checkpointer):
     return workflow.compile(checkpointer=checkpointer)
 
-async def stream_interview_response(active_resume_id: str, target_company: str, chat_history: list):
-    # Data Fetch: Query ChromaDB
-    resume_context = retrieve_context("technical skills, architecture, projects, competitive programming", resume_id=active_resume_id)
-    
+async def stream_interview_response(active_resume_text: str, target_company: str, chat_history: list):
     playbook_persona = ""
     playbook_topics = []
     target_company_lower = target_company.lower()
@@ -319,26 +487,29 @@ async def stream_interview_response(active_resume_id: str, target_company: str, 
             
     # Dual-Mode Routing
     if target_company_lower == "none":
-        interviewer_persona = "You are a Rigorous Staff Engineer who ruthlessly attacks the architectural choices found in the candidate's resume."
-        topics_context = ""
+        topics_context = "General technical interview focusing on system design, databases, scaling, and competitive programming."
+        target_company_display = "None"
     else:
-        interviewer_persona = f"You are an interviewer at {target_company.capitalize()}. Your interview style is: {playbook_persona}."
-        topics_context = f"\nFavorite Topics for this company: {', '.join(playbook_topics)}\n"
+        topics_context = f"Favorite Topics: {', '.join(playbook_topics)}. style: {playbook_persona}"
+        target_company_display = target_company.capitalize()
 
-    system_prompt = f"""{interviewer_persona}
+    system_prompt = f"""You are Alex, a Senior Engineering Manager. You are conducting a technical interview for a software engineering role.
 
-CANDIDATE'S RESUME CONTEXT:
-{resume_context}
-{topics_context}
-GLOBAL SYSTEM FIREWALLS:
-- YOU MUST actively weave the candidate's 1900+ LeetCode rating (Knight), CodeChef 3-star status, and heavy Java/MERN-lite architecture into the scenario.
-- STRICT BLACKLIST: You MUST completely ignore and omit any mention of CGPA, academic averages, or C++ experience, even if they appear in the RAG chunks. Do not ever bring them up.
+CANDIDATE CONTEXT: {active_resume_text}
+INTERVIEW PLAYBOOK & TOPICS: {topics_context}
+TARGET COMPANY: {target_company_display}
 
-Analyze the chat_history.
-- If empty (The Intro): Start like a real human interviewer. Keep it extremely brief (1-2 sentences maximum). Greet them warmly, introduce yourself as the hiring manager at the target company, and ask a light icebreaker like "How is your day going?" or "Are you ready to get started?". DO NOT ask them to explain their projects, resume, or background yet. Let them respond to the icebreaker first.
-- The 40% (Deep Follow-ups): If the candidate just answered, your next question MUST aggressively attack the specific edge cases and vulnerabilities in their previous typed answer.
-- The 60% (Playbook Pivots): If a topic is exhausted after 1-2 follow-ups, pivot to a brand new topic from the playbook.
-- General Rule: Ask only ONE question at a time. Ensure your communication is extremely articulate, clear, and highly technical when probing."""
+YOUR DIRECTIVES:
+1. Persona: Speak naturally and directly. Absolutely DO NOT sound like an AI assistant.
+2. The One-Question Rule: You MUST NEVER ask more than one question at a time. Keep responses concise (2-4 sentences max).
+3. Context Accuracy: Base your questions strictly on the candidate's provided context and the company playbook. Do not invent details about their background.
+
+THE INTERVIEW FLOW:
+- If chat history is empty: If TARGET COMPANY has a value, say "Hi, I'm Alex, an Engineering Manager here at {target_company_display}." If empty, say "...here at CareerOS." Then add: "Thanks for making the time to chat today. How's your day going so far?" STOP THERE.
+- If answering a technical question: Push back. Ask about edge cases, scalability, or trade-offs in the exact architecture or logic they just described.
+- Pivot: If a topic is exhausted, pivot to a new topic from the playbook.
+
+Respond ONLY with your next conversational turn. Do not output internal thoughts or meta-text."""
 
     messages = [SystemMessage(content=system_prompt)]
     

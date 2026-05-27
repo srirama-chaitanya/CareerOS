@@ -28,7 +28,7 @@ function ColdOutreacherContent() {
     }
 
     setIsDrafting(true)
-    setStatusMsg({ text: 'LangGraph is querying ChromaDB and drafting pitch...', type: 'info' })
+    setStatusMsg({ text: 'LangGraph is processing your profile context and drafting pitch...', type: 'info' })
     
     // If a modifier is passed directly (from quick actions), use that. Otherwise use the selectedTone state.
     const activeModifier = modifier || selectedTone
@@ -105,7 +105,7 @@ function ColdOutreacherContent() {
       <div className="mb-10 text-center">
         <h2 className="text-4xl font-light text-white tracking-tight">The Cold Outreacher</h2>
         <p className="text-white/50 mt-3 text-sm max-w-2xl mx-auto">
-          Deploy the Pitch Agent. It scans the job description, pulls your deepest technical feats from ChromaDB, and drafts a hyper-targeted cold email.
+          Deploy the Pitch Agent. It scans the job description, pulls your deepest technical feats from your active context, and drafts a hyper-targeted cold email.
         </p>
       </div>
 

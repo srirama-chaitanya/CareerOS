@@ -50,7 +50,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
     if (!selectedFile || !labelInput.trim()) return
 
     setUploading(true)
-    setUploadStatus('Vectorizing profile into ChromaDB...')
+    setUploadStatus('Extracting Context for Direct Injection...')
     setShowModal(false)
 
     const formData = new FormData()
@@ -64,7 +64,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
       })
       const data = await res.json()
       if (res.ok) {
-        setUploadStatus('Vectorization Complete.')
+        setUploadStatus('Context Extraction Complete.')
         setSelectedFile(null)
         setLabelInput('')
         fetchResumes()
@@ -97,7 +97,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
   }
 
   const handleDeleteResume = async (resumeId) => {
-    if (!window.confirm("Are you sure you want to delete this resume? This will permanently purge all related ChromaDB vector embeddings.")) {
+    if (!window.confirm("Are you sure you want to delete this resume? This will permanently purge all related context.")) {
       return
     }
     try {
@@ -148,10 +148,10 @@ export default function EngineRoom({ onActiveResumeChange }) {
                 </div>
                 
                 <h3 className="text-lg font-medium text-white mb-2">
-                  {uploading ? 'Vectorizing Profile...' : 'Drop a Resume PDF'}
+                  {uploading ? 'Extracting Context...' : 'Drop a Resume PDF'}
                 </h3>
                 <p className="text-xs text-white/40 leading-relaxed px-4">
-                  {uploading ? uploadStatus : 'Drag and drop your engineering PDF. You will label its target specialization before indexing.'}
+                  {uploading ? uploadStatus : 'Drag and drop your engineering PDF. You will label its target specialization before extraction.'}
                 </p>
               </div>
             </div>
@@ -183,8 +183,8 @@ export default function EngineRoom({ onActiveResumeChange }) {
                 <div className="w-16 h-16 bg-white/5 rounded-2xl flex items-center justify-center mb-4 text-white/20">
                   <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
                 </div>
-                <h4 className="text-white font-medium text-sm">No profiles vectorized</h4>
-                <p className="text-xs text-white/40 mt-1 max-w-sm">Drop a new PDF to initialize database models and vector indexes for candidate agents.</p>
+                <h4 className="text-white font-medium text-sm">No profiles loaded</h4>
+                <p className="text-xs text-white/40 mt-1 max-w-sm">Drop a new PDF to extract profile context for candidate agents.</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
@@ -206,7 +206,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
                         {resume.is_active === 1 ? (
                           <span className="text-[10px] tracking-wider uppercase font-extrabold px-2.5 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full shadow-lg shadow-blue-500/5 flex items-center animate-pulse">
                             <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mr-1.5"></span>
-                            Active Agent RAG
+                            Active Agent Context
                           </span>
                         ) : (
                           <button 
@@ -283,7 +283,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
               Label Specialization
             </h3>
             <p className="text-xs text-white/50 mb-6">
-              Give this profile a target title. The agent uses this label to directly query JSearch APIs and scope RAG context.
+              Give this profile a target title. The agent uses this label to directly query JSearch APIs and scope profile context.
             </p>
 
             <form onSubmit={handleUploadSubmit} className="space-y-6">
@@ -329,7 +329,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
                   type="submit"
                   className="flex-1 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold hover:shadow-[0_0_15px_rgba(59,130,246,0.3)] transition-all"
                 >
-                  Vectorize & Index
+                  Extract Context
                 </button>
               </div>
             </form>

@@ -21,7 +21,7 @@ export default function AdvocateChat() {
           <div className="p-4 h-64 overflow-y-auto flex flex-col space-y-3">
             <div className="bg-white/5 p-3 rounded-lg rounded-tl-none self-start max-w-[90%] border border-white/5 shadow-sm">
               <p className="text-sm text-white/80">
-                Standing by. Upload your resume to the Engine Room to initialize my RAG context.
+                Standing by. Upload your resume to the Engine Room to initialize my Direct Context.
               </p>
             </div>
           </div>

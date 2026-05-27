@@ -1,6 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 
-export default function MockInterviewer({ activeResumeId }) {
+const generateUUID = () => {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID()
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+export default function MockInterviewer({ activeResumeId, setActiveModule, setStrategistTopic }) {
   const [chatHistory, setChatHistory] = useState([])
   const [targetCompany, setTargetCompany] = useState('none')
   const [inputText, setInputText] = useState('')
@@ -8,7 +18,11 @@ export default function MockInterviewer({ activeResumeId }) {
   const [isSpeaking, setIsSpeaking] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [sessionId, setSessionId] = useState(() => crypto.randomUUID())
+  const [sessionId, setSessionId] = useState(() => generateUUID())
+
+  // Evaluation States
+  const [showEvalPrompt, setShowEvalPrompt] = useState(false)
+  const [isEvaluating, setIsEvaluating] = useState(false)
 
   const chatContainerRef = useRef(null)
   const recognitionRef = useRef(null)
@@ -194,7 +208,8 @@ export default function MockInterviewer({ activeResumeId }) {
           session_id: sessionId,
           active_resume_id: activeResumeId,
           target_company: targetCompany,
-          new_message: messageToSend
+          new_message: messageToSend,
+          chat_history: historyToSend
         })
       })
 
@@ -214,6 +229,16 @@ export default function MockInterviewer({ activeResumeId }) {
         if (done) break
         
         const chunk = decoder.decode(value, { stream: true })
+        
+        if (chunk.includes('[Error:')) {
+          const errMsg = chunk.substring(chunk.indexOf('[Error:') + 7, chunk.lastIndexOf(']')).trim()
+          setError(errMsg || 'Gemini API free tier rate limit exceeded. Please check your quota or billing plan.')
+          setLoading(false)
+          fullAssistantMessageRef.current = ''
+          setChatHistory(prev => prev.slice(0, -1))
+          break
+        }
+        
         fullAssistantMessageRef.current += chunk
         
         // Progressive TTS Chunking (Zero-Skip Algorithm)
@@ -296,10 +321,56 @@ export default function MockInterviewer({ activeResumeId }) {
     window.speechSynthesis?.cancel()
     setIsSpeaking(false)
     setLoading(false)
+    
+    // Instead of wiping chat, ask user if they want to evaluate
+    setShowEvalPrompt(true)
+  }
+
+  const handleDiscardSession = () => {
     setChatHistory([])
     setInputText('')
     setError('')
-    setSessionId(crypto.randomUUID()) // Reset session so it doesn't pollute the next interview
+    setSessionId(generateUUID()) // Reset session so it doesn't pollute the next interview
+    setShowEvalPrompt(false)
+  }
+
+  const handleEvaluateSession = async () => {
+    setShowEvalPrompt(false)
+    setIsEvaluating(true)
+    setError('')
+
+    try {
+      const res = await fetch('http://localhost:8000/api/evaluate/interview', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          chat_history: chatHistory,
+          target_company: targetCompany 
+        })
+      })
+
+      const data = await res.json()
+      if (res.ok) {
+        setChatHistory([])
+        setInputText('')
+        setError('')
+        setSessionId(generateUUID())
+        setShowEvalPrompt(false)
+        setActiveModule('forge_history')
+      } else {
+        setError(data.detail || 'Failed to evaluate interview.')
+      }
+    } catch (err) {
+      console.error("Evaluation Error:", err)
+      setError("Failed to generate review. Network might be unreachable.")
+    } finally {
+      setIsEvaluating(false)
+    }
+  }
+
+  const handlePlanWithAI = (topic) => {
+    setStrategistTopic(topic)
+    setActiveModule('strategist')
   }
   
   // Kick off the interview if chat is empty
@@ -405,6 +476,37 @@ export default function MockInterviewer({ activeResumeId }) {
                 {chatHistory.length === 0 ? 'Ensure active resume is selected' : isListening ? 'Click stop when finished speaking' : isSpeaking ? 'Click to interrupt' : 'Click microphone to speak'}
             </p>
           </div>
+        {/* Evaluation Prompt Overlay */}
+        {showEvalPrompt && !isEvaluating && (
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl">
+            <div className="bg-zinc-900 border border-white/10 p-8 rounded-2xl shadow-2xl max-w-md text-center">
+              <h3 className="text-2xl font-semibold text-white mb-2">Interview Concluded</h3>
+              <p className="text-white/60 mb-6 text-sm">Would you like to store this session and receive an AI-generated Staff Engineer review of your performance?</p>
+              <div className="flex gap-4 justify-center">
+                <button 
+                  onClick={handleDiscardSession}
+                  className="px-6 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 transition-colors"
+                >
+                  Discard
+                </button>
+                <button 
+                  onClick={handleEvaluateSession}
+                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg transition-colors"
+                >
+                  Save & Evaluate
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Evaluating Loading State */}
+        {isEvaluating && (
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl">
+             <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
+             <p className="text-white/70 animate-pulse font-medium tracking-wide">Analyzing Transcript...</p>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -86,7 +86,7 @@ export default function AutoHunt({
       <div className="mb-12 text-center">
         <h2 className="text-4xl font-light text-white tracking-tight">Scout Command Center</h2>
         <p className="text-white/50 mt-3 text-sm max-w-2xl mx-auto">
-          Deploy the AI Scout to find live job matches. Specify your target in the Smart Search Bar—the agent automatically executes the search and runs a deep RAG match analysis against your active profile.
+          Deploy the AI Scout to find live job matches. Specify your target in the Smart Search Bar—the agent automatically executes the search and runs a deep match analysis against your active profile context.
         </p>
       </div>
 

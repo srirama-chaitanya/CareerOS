@@ -42,6 +42,10 @@ def search_jobs(query: str, location: str = "remote", num_pages: int = 1):
                 "job_description": job.get("job_description"),
                 "job_apply_link": job.get("job_apply_link")
             })
+        if not jobs:
+            logging.info(f"JSearch API returned 0 jobs for query: {query}. Falling back to Mock Jobs.")
+            return get_mock_jobs(query)
+            
         return jobs
     except Exception as e:
         logging.error(f"JSearch API error: {str(e)}. Falling back to Mock Jobs.")
