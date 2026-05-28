@@ -17,7 +17,10 @@ export default function Strategist({ initialTopic = "", setActiveModule, setProv
     try {
       const res = await fetch('http://localhost:8000/api/strategist/plan', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+        },
         body: JSON.stringify({ 
           topic: targetTopic.trim(), 
           duration_days: currentDuration,

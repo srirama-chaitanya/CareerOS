@@ -10,7 +10,9 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('http://localhost:8000/api/evaluations')
+      const res = await fetch('http://localhost:8000/api/evaluations', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` }
+      })
       const data = await res.json()
       if (res.ok) {
         setEvaluations(data)
@@ -34,7 +36,10 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
     if (!confirm('Are you sure you want to delete this critique permanently?')) return
     try {
       const res = await fetch(`http://localhost:8000/api/evaluations/${id}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+        }
       })
       if (res.ok) {
         setEvaluations(prev => prev.filter(item => item.id !== id))
@@ -84,8 +89,15 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
         </div>
       ) : evaluations.length === 0 ? (
         <div className="text-center py-20 border border-white/5 rounded-2xl bg-white/5 backdrop-blur-md">
-          <p className="text-white/40 text-sm">No saved reviews yet.</p>
-          <p className="text-white/20 text-xs mt-1">Conclude an interview in The Forge and select "Evaluate" to store reviews permanently.</p>
+          <p className="text-white/60 text-lg font-medium">Wow... literally zero reviews.</p>
+          <p className="text-white/40 text-sm mt-2">Are you too scared to face the Mock Interviewer, or do you just enjoy the comfort of your comfort zone?</p>
+          
+          <button 
+            onClick={() => setActiveModule('interview')}
+            className="mt-6 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)]"
+          >
+            Prove me wrong 🚀
+          </button>
         </div>
       ) : (
         <div className="space-y-4">

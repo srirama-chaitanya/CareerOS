@@ -30,6 +30,20 @@ export default function AdvocateChat() {
               type="text" 
               placeholder="Ask me anything..." 
               className="w-full bg-transparent border-none text-sm text-white placeholder-white/30 focus:outline-none focus:ring-0 px-2"
+              onKeyDown={async (e) => {
+                if (e.key === 'Enter') {
+                  const text = e.target.value
+                  e.target.value = ''
+                  const res = await fetch('http://localhost:8000/api/chat', {
+                    method: 'POST',
+                    headers: { 
+                      'Content-Type': 'application/json',
+                      'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+                    },
+                    body: JSON.stringify({ message: text })
+                  })
+                }
+              }}
             />
           </div>
         </div>

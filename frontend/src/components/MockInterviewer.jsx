@@ -202,7 +202,10 @@ export default function MockInterviewer({ activeResumeId, setActiveModule, setSt
     try {
       const res = await fetch('http://localhost:8000/api/interview/chat', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+        },
         signal: abortControllerRef.current.signal,
         body: JSON.stringify({
           session_id: sessionId,
@@ -342,7 +345,10 @@ export default function MockInterviewer({ activeResumeId, setActiveModule, setSt
     try {
       const res = await fetch('http://localhost:8000/api/evaluate/interview', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+        },
         body: JSON.stringify({ 
           chat_history: chatHistory,
           target_company: targetCompany 

@@ -1,7 +1,11 @@
 import { useState } from 'react'
+import { LogOut } from 'lucide-react'
 
-export default function Sidebar({ activeModule, setActiveModule }) {
+export default function Sidebar({ activeModule, setActiveModule, activeResumeLabel, userEmail, onLogout }) {
   const [isCollapsed, setIsCollapsed] = useState(false)
+  
+  const username = userEmail ? userEmail.split('@')[0] : 'Engineer';
+  const initial = username.charAt(0).toUpperCase();
   
   const navItems = [
     { id: 'engine', label: '1. The Engine Room', short: 'E1' },
@@ -69,14 +73,28 @@ export default function Sidebar({ activeModule, setActiveModule }) {
       </nav>
       
       <div className="mt-auto pt-6 border-t border-white/10">
-        <div className={`flex items-center ${isCollapsed ? 'justify-center' : 'space-x-3 px-2'}`}>
-          <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">E1</div>
-          {!isCollapsed && (
-            <div className="whitespace-nowrap overflow-hidden">
-              <p className="text-sm font-medium text-white">Engineer_1</p>
-              <p className="text-xs text-white/40">Offline Mode</p>
+        <div className={`flex flex-col gap-4 ${isCollapsed ? 'items-center' : 'px-2'}`}>
+          <div className="flex items-center space-x-3 w-full">
+            <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">
+              {initial}
             </div>
-          )}
+            {!isCollapsed && (
+              <div className="whitespace-nowrap overflow-hidden flex-1">
+                <p className="text-sm font-medium text-white truncate">{username}</p>
+                <p className="text-xs text-white/40 truncate">
+                  {activeResumeLabel ? `Context: ${activeResumeLabel}` : 'System Ready'}
+                </p>
+              </div>
+            )}
+          </div>
+          <button 
+            onClick={onLogout}
+            className={`w-full flex items-center justify-center gap-2 p-2 rounded-lg text-white/60 hover:text-red-400 hover:bg-white/5 transition-colors ${isCollapsed ? '' : ''}`}
+            title="Log Out"
+          >
+            <LogOut className="w-4 h-4" />
+            {!isCollapsed && <span className="text-sm">Log Out</span>}
+          </button>
         </div>
       </div>
     </div>

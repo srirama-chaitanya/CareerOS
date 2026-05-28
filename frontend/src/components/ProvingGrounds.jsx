@@ -87,7 +87,10 @@ The functions get and put must each run in O(1) average time complexity.`;
     try {
       const response = await fetch('http://localhost:8000/api/evaluate/code', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+        },
         body: JSON.stringify({
           problem_statement: problem.problem_statement,
           user_code: activeTab === 'solution' ? code : (activeTab === 'readme' ? code : code) // always send the solution code!

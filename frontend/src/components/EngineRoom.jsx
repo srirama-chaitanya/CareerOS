@@ -10,7 +10,9 @@ export default function EngineRoom({ onActiveResumeChange }) {
 
   const fetchResumes = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/resumes')
+      const res = await fetch('http://localhost:8000/api/resumes', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` }
+      })
       if (res.ok) {
         const data = await res.json()
         setResumes(data)
@@ -60,6 +62,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
     try {
       const res = await fetch('http://localhost:8000/api/upload', {
         method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` },
         body: formData
       })
       const data = await res.json()
@@ -84,7 +87,10 @@ export default function EngineRoom({ onActiveResumeChange }) {
     try {
       const res = await fetch('http://localhost:8000/api/resumes/active', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+        },
         body: JSON.stringify({ resume_id: resumeId })
       })
       if (res.ok) {
@@ -102,7 +108,8 @@ export default function EngineRoom({ onActiveResumeChange }) {
     }
     try {
       const res = await fetch(`http://localhost:8000/api/resumes/${resumeId}`, {
-        method: 'DELETE'
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` }
       })
       if (res.ok) {
         fetchResumes()

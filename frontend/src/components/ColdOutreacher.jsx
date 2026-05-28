@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { GoogleOAuthProvider, useGoogleLogin } from '@react-oauth/google'
+import { useGoogleLogin } from '@react-oauth/google'
 
 function ColdOutreacherContent() {
   const [targetContext, setTargetContext] = useState('')
@@ -36,7 +36,10 @@ function ColdOutreacherContent() {
     try {
       const res = await fetch('http://localhost:8000/api/draft', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+        },
         body: JSON.stringify({
           job_description: targetContext,
           modifier: activeModifier
@@ -70,7 +73,10 @@ function ColdOutreacherContent() {
     try {
       const res = await fetch('http://localhost:8000/api/send_email', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`
+        },
         body: JSON.stringify({
           recipient_email: recipient,
           subject: subject,
@@ -126,7 +132,7 @@ function ColdOutreacherContent() {
             />
 
             <h4 className="text-white/50 text-xs mb-3 uppercase tracking-wider relative z-10">Select Initial Tone</h4>
-            <div className="grid grid-cols-3 gap-2 mb-6 relative z-10">
+            <div className="grid grid-cols-2 gap-2 mb-6 relative z-10">
               <button
                 onClick={() => setSelectedTone('')}
                 className={`py-2 text-xs font-medium rounded-lg border transition-all ${
@@ -156,6 +162,16 @@ function ColdOutreacherContent() {
                 }`}
               >
                 Highly Technical
+              </button>
+              <button
+                onClick={() => setSelectedTone('sarcastic')}
+                className={`py-2 text-xs font-medium rounded-lg border transition-all ${
+                  selectedTone === 'sarcastic'
+                  ? 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'
+                  : 'bg-white/5 border-white/10 text-white/60 hover:bg-white/10 hover:text-white'
+                }`}
+              >
+                Snarky & Sarcastic
               </button>
             </div>
 
@@ -201,6 +217,13 @@ function ColdOutreacherContent() {
                   className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
                 >
                   Make it More Technical
+                </button>
+                <button
+                  onClick={() => handleDraft('sarcastic')}
+                  disabled={!targetContext || isDrafting}
+                  className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-lg text-xs font-medium text-white/70 hover:text-white hover:bg-white/10 transition-colors disabled:opacity-50"
+                >
+                  Make it Sarcastic
                 </button>
               </div>
             </div>
@@ -251,12 +274,4 @@ function ColdOutreacherContent() {
   )
 }
 
-export default function ColdOutreacher() {
-  const clientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || 'MOCK_CLIENT_ID.apps.googleusercontent.com'
-  
-  return (
-    <GoogleOAuthProvider clientId={clientId}>
-      <ColdOutreacherContent />
-    </GoogleOAuthProvider>
-  )
-}
+export default ColdOutreacherContent
