@@ -8,17 +8,17 @@ export default function Sidebar({ activeModule, setActiveModule, activeResumeLab
   const initial = username.charAt(0).toUpperCase();
   
   const navItems = [
-    { id: 'engine', label: '1. The Engine Room', short: 'E1' },
-    { id: 'hunt', label: '2. Auto-Hunt Command', short: 'AH' },
-    { id: 'outreach', label: '3. Cold Outreacher', short: 'CO' },
-    { id: 'interview', label: '4. Mock Interviewer', short: 'MI' },
-    { id: 'strategist', label: '5. The Strategist', short: 'ST' },
-    { id: 'proving_grounds', label: '6. Proving Grounds', short: 'PG' },
-    { id: 'forge_history', label: '7. Forge Reviews', short: 'FR' }
+    { id: 'engine', label: 'Context Engine', short: 'CE' },
+    { id: 'hunt', label: 'Job Radar', short: 'JR' },
+    { id: 'outreach', label: 'Outreach Agent', short: 'OA' },
+    { id: 'interview', label: 'Mock Interview', short: 'MI' },
+    { id: 'proving_grounds', label: 'Proving Grounds', short: 'PG' },
+    { id: 'forge_history', label: 'Evaluation Forge', short: 'EF' },
+    { id: 'strategist', label: 'Strategist', short: 'ST' }
   ]
 
   return (
-    <div className={`h-full bg-black/40 border-r border-white/10 flex flex-col backdrop-blur-xl relative z-20 transition-all duration-300 ease-in-out ${isCollapsed ? 'w-20 px-3 py-6' : 'w-72 p-6'}`}>
+    <div className={`h-full bg-white/[0.02] border-r border-white/[0.05] flex flex-col backdrop-blur-2xl relative z-20 transition-all duration-500 ease-[cubic-bezier(0.16,1,0.3,1)] ${isCollapsed ? 'w-20 px-3 py-6' : 'w-72 p-6'}`}>
       
       <div className={`mb-10 flex items-center ${isCollapsed ? 'justify-center mt-2' : 'justify-between'}`}>
         {isCollapsed ? (
@@ -61,10 +61,10 @@ export default function Sidebar({ activeModule, setActiveModule, activeResumeLab
             key={item.id}
             onClick={() => setActiveModule(item.id)}
             title={isCollapsed ? item.label : ''}
-            className={`w-full transition-all text-sm font-medium flex items-center ${isCollapsed ? 'justify-center p-3 rounded-xl' : 'text-left px-4 py-3 rounded-lg'} ${
+            className={`w-full transition-all duration-300 text-sm font-medium flex items-center ${isCollapsed ? 'justify-center p-3 rounded-2xl' : 'text-left px-4 py-3 rounded-xl'} ${
               activeModule === item.id 
-                ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20 shadow-[0_0_15px_rgba(59,130,246,0.1)]' 
-                : 'text-white/60 hover:bg-white/5 hover:text-white border border-transparent'
+                ? 'bg-white/[0.08] text-white border border-white/[0.1] shadow-[0_4px_20px_rgba(0,0,0,0.2)]' 
+                : 'text-white/40 hover:bg-white/[0.04] hover:text-white border border-transparent'
             }`}
           >
             {isCollapsed ? item.short : item.label}

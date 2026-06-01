@@ -49,6 +49,20 @@ def init_db():
     )
     """)
 
+    # Study Plans table
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS study_plans (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        topic TEXT,
+        goal TEXT,
+        duration_days INTEGER,
+        plan_data TEXT,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY(user_id) REFERENCES users(id)
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -217,9 +231,43 @@ def db_delete_evaluation(user_id: str, eval_id: str) -> bool:
     try:
         cursor.execute("DELETE FROM interview_evaluations WHERE id = ? AND user_id = ?", (eval_id, user_id))
         conn.commit()
-        return True
+        return cursor.rowcount > 0
     except Exception as e:
         conn.rollback()
         raise e
+    finally:
+        conn.close()
+
+# --- Study Plan Helpers ---
+def db_save_study_plan(user_id: str, plan_id: str, topic: str, goal: str, duration_days: int, plan_data: str):
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('''
+            INSERT INTO study_plans (id, user_id, topic, goal, duration_days, plan_data)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', (plan_id, user_id, topic, goal, duration_days, plan_data))
+        conn.commit()
+    finally:
+        conn.close()
+
+def db_get_all_study_plans(user_id: str) -> List[Dict]:
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    cursor = conn.cursor()
+    try:
+        cursor.execute('SELECT * FROM study_plans WHERE user_id = ? ORDER BY created_at DESC', (user_id,))
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+    finally:
+        conn.close()
+
+def db_delete_study_plan(user_id: str, plan_id: str) -> bool:
+    conn = sqlite3.connect(DB_PATH)
+    cursor = conn.cursor()
+    try:
+        cursor.execute('DELETE FROM study_plans WHERE id = ? AND user_id = ?', (plan_id, user_id))
+        conn.commit()
+        return cursor.rowcount > 0
     finally:
         conn.close()

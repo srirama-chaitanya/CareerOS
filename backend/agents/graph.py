@@ -9,6 +9,7 @@ import os
 from dotenv import load_dotenv
 
 class AgentState(TypedDict):
+    user_id: Optional[str]
     status: str
     action: Optional[str]
     search_string: Optional[str]
@@ -116,11 +117,12 @@ JOBS TO EVALUATE:
 
 
 def draft_pitch(state: AgentState):
+    user_id = state.get("user_id")
     target_jd = state.get("outreach_target_jd", "")
     modifier = state.get("draft_modifier", "")
     
-    active_id = db_get_active_resume_id()
-    resume_context = db_get_resume_text(active_id) if active_id else "No active resume profile context found."
+    active_id = db_get_active_resume_id(user_id) if user_id else None
+    resume_context = db_get_resume_text(user_id, active_id) if active_id else "No active resume profile context found."
     
     # Tone and style guidelines based on modifiers
     modifier_instruction = "Keep the email concise, punchy, and professional (around 150 words)."
@@ -182,12 +184,11 @@ Do not wrap the JSON in markdown blocks like ```json. Respond ONLY with raw JSON
     }
 
 def interviewer_node(state: AgentState):
-    active_resume_id = state.get("active_resume_id")
     target_company = state.get("target_company", "none").lower()
     chat_history = state.get("chat_history", [])
     
-    # Data Fetch: Query SQLite for Direct Context
-    resume_context = db_get_resume_text(active_resume_id) if active_resume_id else "No active resume context available."
+    # Data Fetch: Read from State instead of querying SQLite
+    resume_context = state.get("active_resume_text", "No active resume context available.")
     
     playbook_persona = ""
     playbook_topics = []

@@ -32,7 +32,10 @@ from db.database import (
     db_get_resume_text,
     db_save_evaluation,
     db_get_all_evaluations,
-    db_delete_evaluation
+    db_delete_evaluation,
+    db_save_study_plan,
+    db_get_all_study_plans,
+    db_delete_study_plan
 )
 from agents.graph import get_graph, stream_interview_response, llm
 from langchain_core.messages import HumanMessage
@@ -305,6 +308,7 @@ async def draft_email(request: DraftRequest, user_id: str = Depends(get_current_
     thread_id = "draft_bot"
     config = {"configurable": {"thread_id": f"{user_id}_{thread_id}"}}
     update_data = {
+        "user_id": user_id,
         "action": "draft",
         "outreach_target_jd": request.job_description,
         "draft_modifier": request.modifier
@@ -345,9 +349,47 @@ async def generate_strategist_plan(request: StrategistPlanRequest, user_id: str 
     
     try:
         result = agent_graph.invoke(update_data, config=config)
-        return {"plan": result.get("study_plan", {})}
+        plan_data = result.get("study_plan", {})
+        
+        # Save to DB
+        plan_id = str(uuid.uuid4())
+        db_save_study_plan(
+            user_id=user_id,
+            plan_id=plan_id,
+            topic=request.topic,
+            goal=request.goal,
+            duration_days=request.duration_days,
+            plan_data=json.dumps(plan_data)
+        )
+        
+        return {"id": plan_id, "plan": plan_data}
     except Exception as e:
         logging.error(f"Error generating study plan: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/strategist/plans")
+async def get_study_plans(user_id: str = Depends(get_current_user)):
+    try:
+        plans = db_get_all_study_plans(user_id)
+        # Parse plan_data JSON string back to dict
+        for p in plans:
+            if "plan_data" in p and p["plan_data"]:
+                p["plan"] = json.loads(p["plan_data"])
+                del p["plan_data"]
+        return plans
+    except Exception as e:
+        logging.error(f"Error fetching study plans: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to fetch study plans.")
+
+@app.delete("/api/strategist/plans/{plan_id}")
+async def delete_study_plan(plan_id: str, user_id: str = Depends(get_current_user)):
+    try:
+        success = db_delete_study_plan(user_id, plan_id)
+        if not success:
+            raise HTTPException(status_code=404, detail="Study plan not found.")
+        return {"status": "success"}
+    except Exception as e:
+        logging.error(f"Error deleting study plan: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 def save_chat_to_state(user_id: str, session_id: str, active_resume_text: str, target_company: str, chat_history: list):

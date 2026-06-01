@@ -18,7 +18,8 @@ export default function AutoHunt({
   jobs,
   error,
   setError,
-  handleSearch 
+  handleSearch,
+  onDraftOutreach
 }) {
   const [currentPage, setCurrentPage] = useState(1)
   const itemsPerPage = 4
@@ -84,7 +85,7 @@ export default function AutoHunt({
   return (
     <div className="max-w-6xl mx-auto py-12 px-8 animate-in fade-in duration-500">
       <div className="mb-12 text-center">
-        <h2 className="text-4xl font-light text-white tracking-tight">Scout Command Center</h2>
+        <h2 className="text-4xl font-light text-white tracking-tight">Job Radar</h2>
         <p className="text-white/50 mt-3 text-sm max-w-2xl mx-auto">
           Deploy the AI Scout to find live job matches. Specify your target in the Smart Search Bar—the agent automatically executes the search and runs a deep match analysis against your active profile context.
         </p>
@@ -107,16 +108,16 @@ export default function AutoHunt({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Target Job Title (e.g., Backend Developer)"
-                  className="w-full bg-black/30 border border-white/10 rounded-xl pl-11 pr-4 py-4 text-white text-base placeholder-white/30 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  className="w-full bg-black/40 border border-white/10 rounded-2xl pl-12 pr-4 py-4 text-white text-base placeholder-white/30 focus:outline-none focus:border-cyan-500/50 focus:ring-1 focus:ring-cyan-500/50 transition-all shadow-inner"
                 />
               </div>
               <button
                 onClick={triggerSearch}
                 disabled={loading}
-                className={`px-8 py-4 rounded-xl font-semibold tracking-wide transition-all whitespace-nowrap text-sm flex items-center justify-center gap-2 ${
+                className={`px-8 py-4 rounded-2xl font-bold tracking-wide transition-all duration-300 whitespace-nowrap text-sm flex items-center justify-center gap-3 ${
                   loading 
-                    ? 'bg-blue-600/50 text-white/50 cursor-not-allowed' 
-                    : 'bg-blue-600 text-white hover:bg-blue-500 hover:shadow-[0_0_20px_rgba(59,130,246,0.35)]'
+                    ? 'bg-white/5 text-white/30 cursor-not-allowed' 
+                    : 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400 shadow-[0_0_20px_rgba(6,182,212,0.3)] hover:shadow-[0_0_30px_rgba(6,182,212,0.5)] transform hover:-translate-y-0.5'
                 }`}
               >
                 {loading && <span className="w-4 h-4 border-2 border-white/35 border-t-white rounded-full animate-spin"></span>}
@@ -133,22 +134,24 @@ export default function AutoHunt({
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="e.g. Remote, San Francisco"
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs placeholder-white/20 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-xs placeholder-white/20 focus:outline-none focus:border-cyan-500/50 transition-all"
                 />
               </div>
               
               <div>
-                <label className="block text-[10px] uppercase tracking-wider font-bold text-white/40 mb-2">Employment Type</label>
-                <select
-                  value={jobType}
-                  onChange={(e) => setJobType(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none focus:border-blue-500/50 transition-colors appearance-none"
-                >
+                <label className="block text-[10px] uppercase tracking-wider font-bold text-white/40 mb-2">Job Type</label>
+                <div className="relative">
+                  <select
+                    value={jobType}
+                    onChange={(e) => setJobType(e.target.value)}
+                    className="w-full bg-black/40 border border-white/10 text-white rounded-xl px-4 py-3 appearance-none focus:outline-none focus:border-cyan-500/50 transition-all cursor-pointer text-xs"
+                  >
                   <option value="FULLTIME">Full-time</option>
                   <option value="CONTRACTOR">Contract</option>
                   <option value="INTERN">Internship</option>
                   <option value="PARTTIME">Part-time</option>
                 </select>
+                </div>
               </div>
 
               <div>
@@ -156,7 +159,7 @@ export default function AutoHunt({
                 <select
                   value={experienceLevel}
                   onChange={(e) => setExperienceLevel(e.target.value)}
-                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-2.5 text-white text-xs focus:outline-none focus:border-blue-500/50 transition-colors appearance-none"
+                  className="w-full bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-white text-xs focus:outline-none focus:border-blue-500/50 transition-colors appearance-none"
                 >
                   <option value="">Any Level</option>
                   <option value="Entry Level">Entry Level</option>
@@ -197,12 +200,12 @@ export default function AutoHunt({
       {/* Job Grid Results */}
       {jobs.length > 0 && (
         <div className="animate-in fade-in slide-in-from-bottom-8 duration-500">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-10">
+          <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-10">
             {jobs.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage).map((job, idx) => (
               <div 
-                key={idx} 
-                className="bg-white/5 border border-white/10 rounded-2xl p-6 hover:bg-white/10 hover:border-white/20 transition-all duration-300 flex flex-col justify-between group"
-              >
+              key={idx} 
+              className="bg-white/[0.02] border border-white/[0.05] rounded-3xl p-8 backdrop-blur-2xl hover:bg-white/[0.04] transition-all duration-500 flex flex-col md:flex-row gap-8 shadow-xl group hover:-translate-y-1 hover:border-cyan-500/30"
+            >
                 <div>
                   <div className="flex justify-between items-start mb-4">
                     <div>
@@ -213,20 +216,20 @@ export default function AutoHunt({
                         {job.employer_name} • {job.job_city ? `${job.job_city}, ${job.job_country}` : 'Location NA'} {job.job_is_remote && '• Remote'}
                       </p>
                     </div>
-                    <div className={`px-3 py-1.5 rounded-xl border text-xs font-extrabold tracking-wider ${getScoreColor(job.match_score)}`}>
-                      {job.match_score}% MATCH
-                    </div>
                   </div>
                   
                   <div className="bg-black/30 rounded-xl p-4 mb-6 border border-white/5 relative">
-                    <div className="absolute top-3 left-4 text-xs font-bold text-white/20 uppercase tracking-widest pointer-events-none">Agent Reasoning</div>
+                    <span className="text-[10px] tracking-widest uppercase font-extrabold px-3 py-1.5 bg-gradient-to-r from-cyan-500/20 to-blue-500/20 text-cyan-300 border border-cyan-500/30 rounded-full flex items-center shadow-[0_0_15px_rgba(6,182,212,0.2)] w-max">
+                      <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full mr-1.5 animate-pulse"></span>
+                      Match: {job.match_score}/100
+                    </span>
                     <p className="text-sm text-white/80 leading-relaxed italic pt-4">
                       "{job.match_reason}"
                     </p>
                   </div>
                 </div>
 
-                <div className="flex space-x-3 pt-2">
+                <div className="flex flex-col space-y-3 pt-2 w-full md:w-auto">
                   <a 
                     href={job.job_apply_link} 
                     target="_blank" 
@@ -235,7 +238,10 @@ export default function AutoHunt({
                   >
                     View Job Posting
                   </a>
-                  <button className="flex-1 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/20 text-blue-400 text-sm font-semibold py-3 rounded-xl transition-all">
+                  <button 
+                    onClick={() => onDraftOutreach && onDraftOutreach(job.job_description || `Target Role: ${job.job_title} at ${job.employer_name}\n\n${job.job_apply_link}`)}
+                    className="flex-1 bg-blue-600/10 hover:bg-blue-600/25 border border-blue-500/20 text-blue-400 text-sm font-semibold py-3 rounded-xl transition-all"
+                  >
                     Draft Outreach
                   </button>
                 </div>

@@ -11,7 +11,8 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
     setError('')
     try {
       const res = await fetch('http://localhost:8000/api/evaluations', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` },
+        cache: 'no-store'
       })
       const data = await res.json()
       if (res.ok) {
@@ -72,10 +73,15 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
   }
 
   return (
-    <div className="max-w-4xl mx-auto py-12 px-8 h-full">
-      <div className="mb-10">
-        <h2 className="text-3xl font-light text-white tracking-tight">Forge Reviews</h2>
-        <p className="text-white/50 mt-1 text-sm">Historical evaluations of your stateful crucible sessions.</p>
+    <div className="max-w-5xl mx-auto py-12 px-6 md:px-12 h-full relative z-10">
+      <div className="mb-12 text-center md:text-left">
+        <h2 className="text-4xl font-light text-white tracking-tight flex items-center justify-center md:justify-start gap-4 mb-4">
+          <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)]">
+            🛡️
+          </div>
+          Evaluation Forge
+        </h2>
+        <p className="text-white/40 text-sm tracking-wide">Historical evaluations of your stateful crucible sessions.</p>
       </div>
 
       {loading ? (
@@ -88,55 +94,65 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
           ⚠️ {error}
         </div>
       ) : evaluations.length === 0 ? (
-        <div className="text-center py-20 border border-white/5 rounded-2xl bg-white/5 backdrop-blur-md">
-          <p className="text-white/60 text-lg font-medium">Wow... literally zero reviews.</p>
-          <p className="text-white/40 text-sm mt-2">Are you too scared to face the Mock Interviewer, or do you just enjoy the comfort of your comfort zone?</p>
+        <div className="text-center py-24 border border-white/[0.05] rounded-3xl bg-white/[0.02] backdrop-blur-3xl shadow-[0_8px_32px_rgba(0,0,0,0.3)] max-w-2xl mx-auto">
+          <div className="w-20 h-20 bg-indigo-500/10 rounded-full flex items-center justify-center mx-auto mb-6 border border-indigo-500/20 shadow-inner">
+             <span className="text-3xl">👻</span>
+          </div>
+          <h3 className="text-white/90 text-2xl font-light mb-2">Zero Evaluated Sessions</h3>
+          <p className="text-white/40 text-sm max-w-md mx-auto leading-relaxed">
+            The forge is cold. Are you too scared to face the Mock Interviewer, or do you just enjoy the comfort of your comfort zone?
+          </p>
           
           <button 
             onClick={() => setActiveModule('interview')}
-            className="mt-6 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white text-sm font-medium rounded-lg transition-all shadow-[0_0_15px_rgba(59,130,246,0.3)] hover:shadow-[0_0_25px_rgba(59,130,246,0.5)]"
+            className="mt-8 px-8 py-3.5 bg-gradient-to-r from-indigo-500 to-cyan-500 hover:from-indigo-400 hover:to-cyan-400 text-white text-sm font-bold tracking-wide rounded-2xl transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] transform hover:-translate-y-1"
           >
-            Prove me wrong 🚀
+            Enter the Crucible 🚀
           </button>
         </div>
       ) : (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 gap-6">
           {evaluations.map((item) => {
             const isExpanded = expandedId === item.id
             return (
               <div 
                 key={item.id}
                 onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                className={`bg-white/5 border rounded-2xl overflow-hidden transition-all duration-300 cursor-pointer ${
-                  isExpanded ? 'border-white/20 bg-white/10' : 'border-white/5 hover:border-white/10 hover:bg-white/5'
+                className={`bg-white/[0.02] border backdrop-blur-2xl rounded-3xl overflow-hidden transition-all duration-500 cursor-pointer shadow-xl group ${
+                  isExpanded ? 'border-indigo-500/30 bg-white/[0.05] shadow-[0_0_30px_rgba(99,102,241,0.1)]' : 'border-white/[0.05] hover:border-indigo-500/20 hover:bg-white/[0.04]'
                 }`}
               >
                 {/* Header Summary */}
-                <div className="p-6 flex items-center justify-between">
-                  <div className="flex items-center space-x-6">
-                    <div>
-                      <span className="text-xs uppercase tracking-widest text-white/30 font-bold block mb-1">Company Target</span>
-                      <h4 className="text-lg font-medium text-white">{item.company}</h4>
+                <div className="p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  
+                  <div className="flex items-center space-x-6 relative z-10">
+                    <div className="w-12 h-12 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-xl shadow-inner">
+                       {item.company?.toLowerCase() === 'google' ? 'G' : item.company?.toLowerCase() === 'meta' ? 'M' : item.company?.toLowerCase() === 'amazon' ? 'A' : '⚙️'}
                     </div>
-                    <div className="border-l border-white/5 h-8"></div>
                     <div>
-                      <span className="text-xs uppercase tracking-widest text-white/30 font-bold block mb-1">Concluded At</span>
-                      <p className="text-sm text-white/60">{formatDate(item.timestamp)}</p>
+                      <span className="text-[10px] uppercase tracking-widest text-indigo-400/80 font-bold block mb-1">Target Persona</span>
+                      <h4 className="text-xl font-medium text-white">{item.company}</h4>
+                    </div>
+                    <div className="border-l border-white/5 h-10 hidden md:block"></div>
+                    <div className="hidden md:block">
+                      <span className="text-[10px] uppercase tracking-widest text-white/30 font-bold block mb-1">Timestamp</span>
+                      <p className="text-sm text-white/50">{formatDate(item.timestamp)}</p>
                     </div>
                   </div>
 
-                  <div className="flex items-center space-x-4">
-                    <div className={`px-4 py-2 rounded-xl text-sm font-bold tracking-wider border ${
-                      item.score >= 80 ? 'text-green-400 border-green-500/20 bg-green-500/5' : 
-                      item.score >= 60 ? 'text-yellow-400 border-yellow-500/20 bg-yellow-500/5' : 
-                      'text-red-400 border-red-500/20 bg-red-500/5'
+                  <div className="flex items-center space-x-6 relative z-10 w-full md:w-auto justify-between md:justify-end">
+                    <div className={`px-5 py-2.5 rounded-full text-sm font-bold tracking-wider border shadow-lg ${
+                      item.score >= 80 ? 'text-emerald-300 border-emerald-500/30 bg-emerald-500/10 shadow-[0_0_15px_rgba(16,185,129,0.2)]' : 
+                      item.score >= 60 ? 'text-amber-300 border-amber-500/30 bg-amber-500/10 shadow-[0_0_15px_rgba(245,158,11,0.2)]' : 
+                      'text-red-300 border-red-500/30 bg-red-500/10 shadow-[0_0_15px_rgba(239,68,68,0.2)]'
                     }`}>
-                      {item.score}/100
+                      Score: {item.score}/100
                     </div>
 
                     <button 
                       onClick={(e) => handleDelete(item.id, e)}
-                      className="w-9 h-9 flex items-center justify-center rounded-xl bg-red-500/10 hover:bg-red-500/20 text-red-400 transition-colors"
+                      className="w-10 h-10 flex items-center justify-center rounded-xl bg-black/40 border border-white/10 hover:border-red-500/30 hover:bg-red-500/10 text-white/30 hover:text-red-400 transition-all duration-300"
                       title="Delete Critique permanently"
                     >
                       🗑️
@@ -146,45 +162,49 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
 
                 {/* Expanded Details */}
                 {isExpanded && (
-                  <div className="px-6 pb-6 pt-2 border-t border-white/5 animate-in fade-in duration-300">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                      <div className="bg-green-500/5 border border-green-500/10 rounded-xl p-5">
-                        <h5 className="text-green-400 font-semibold mb-3 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Key Strengths
-                        </h5>
-                        <ul className="space-y-2">
-                          {item.strengths && item.strengths.map((s, idx) => (
-                            <li key={idx} className="text-sm text-white/80 leading-relaxed">• {s}</li>
-                          ))}
-                        </ul>
-                      </div>
-
-                      <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-5">
-                        <h5 className="text-red-400 font-semibold mb-3 flex items-center gap-2">
-                          <span className="w-1.5 h-1.5 rounded-full bg-red-500"></span> Weakness Points
-                        </h5>
-                        <ul className="space-y-2">
-                          {item.weaknesses && item.weaknesses.map((w, idx) => (
-                            <li key={idx} className="text-sm text-white/80 leading-relaxed">• {w}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-
-                    {item.recommended_study_topic && (
-                      <div className="bg-blue-500/5 border border-blue-500/20 rounded-xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4">
-                        <div>
-                          <p className="text-xs uppercase tracking-widest text-white/30 font-bold mb-1">Recommended Attack Vector</p>
-                          <p className="text-lg font-medium text-blue-400">{item.recommended_study_topic}</p>
+                  <div className="px-8 pb-8 animate-in slide-in-from-top-4 fade-in duration-300">
+                    <div className="pt-8 border-t border-white/[0.05]">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
+                        <div className="bg-red-500/5 p-6 rounded-2xl border border-red-500/10">
+                          <h5 className="text-[10px] font-bold text-red-400/80 uppercase tracking-widest mb-4 flex items-center gap-2"><span className="text-red-500">⚠</span> Weaknesses</h5>
+                          <ul className="space-y-3">
+                            {(item.weaknesses || []).map((weakness, idx) => (
+                              <li key={idx} className="flex items-start text-sm text-red-200/70 leading-relaxed">
+                                <span className="mr-3 text-red-500/50 font-bold shrink-0">•</span>
+                                {weakness}
+                              </li>
+                            ))}
+                          </ul>
                         </div>
-                        <button 
-                          onClick={() => handlePlanWithAI(item.recommended_study_topic)}
-                          className="px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-all shadow-[0_0_15px_rgba(37,99,235,0.2)]"
-                        >
-                          Plan with AI Planner ⚡
-                        </button>
+                        <div className="bg-emerald-500/5 p-6 rounded-2xl border border-emerald-500/10">
+                          <h5 className="text-[10px] font-bold text-emerald-400/80 uppercase tracking-widest mb-4 flex items-center gap-2"><span className="text-emerald-500">★</span> Strengths</h5>
+                          <ul className="space-y-3">
+                            {(item.strengths || []).map((strength, idx) => (
+                              <li key={idx} className="flex items-start text-sm text-emerald-200/70 leading-relaxed">
+                                <span className="mr-3 text-emerald-500/50 font-bold shrink-0">✓</span>
+                                {strength}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
                       </div>
-                    )}
+
+                      {item.recommended_study_topic && (
+                        <div className="bg-indigo-500/5 border border-indigo-500/20 rounded-2xl p-6 flex flex-col sm:flex-row items-center justify-between gap-6 relative overflow-hidden group/cta">
+                          <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/10 to-transparent opacity-0 group-hover/cta:opacity-100 transition-opacity duration-500"></div>
+                          <div className="relative z-10">
+                            <p className="text-[10px] uppercase tracking-widest text-indigo-400/50 font-bold mb-2">Recommended Attack Vector</p>
+                            <p className="text-lg font-medium text-white">{item.recommended_study_topic}</p>
+                          </div>
+                          <button 
+                            onClick={() => handlePlanWithAI(item.recommended_study_topic)}
+                            className="relative z-10 px-6 py-3.5 rounded-xl bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-400 hover:to-blue-400 text-white text-sm font-bold tracking-wide transition-all shadow-[0_0_20px_rgba(99,102,241,0.3)] hover:shadow-[0_0_30px_rgba(99,102,241,0.5)] transform hover:-translate-y-0.5 whitespace-nowrap"
+                          >
+                            Deploy Strategist ⚡
+                          </button>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>

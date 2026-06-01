@@ -21,6 +21,7 @@ function App() {
   const [strategistTopic, setStrategistTopic] = useState('')
   const [provingGroundsProblem, setProvingGroundsProblem] = useState(null)
   const [unlockedDay, setUnlockedDay] = useState(1)
+  const [outreachTargetContext, setOutreachTargetContext] = useState('')
 
   // Hoisted Auto-Hunt States to run completely in background
   const [searchQuery, setSearchQuery] = useState('')
@@ -124,12 +125,13 @@ function App() {
           }} 
         />
       ) : (
-        <div className="flex h-screen bg-zinc-950 overflow-hidden font-sans selection:bg-blue-500/30">
-          {/* Abstract Background Elements for Premium Glassmorphism Look */}
+        <div className="flex h-screen bg-[#050505] overflow-hidden font-sans selection:bg-indigo-500/30">
+          {/* Aurora Glass Background Elements */}
           <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none z-0">
-          <div className="absolute -top-[20%] -left-[10%] w-[50%] h-[50%] rounded-full bg-blue-900/20 blur-[120px]"></div>
-          <div className="absolute top-[60%] -right-[10%] w-[40%] h-[40%] rounded-full bg-indigo-900/10 blur-[100px]"></div>
-        </div>
+            <div className="absolute -top-[30%] -left-[10%] w-[70%] h-[70%] rounded-full bg-violet-600/10 blur-[150px]"></div>
+            <div className="absolute top-[40%] -right-[20%] w-[60%] h-[60%] rounded-full bg-cyan-600/10 blur-[150px]"></div>
+            <div className="absolute -bottom-[20%] left-[20%] w-[50%] h-[50%] rounded-full bg-emerald-600/10 blur-[150px]"></div>
+          </div>
 
         <Sidebar 
           activeModule={activeModule} 
@@ -163,10 +165,14 @@ function App() {
               error={huntError}
               setError={setHuntError}
               handleSearch={executeHuntSearch}
+              onDraftOutreach={(jobDescription) => {
+                setOutreachTargetContext(jobDescription)
+                setActiveModule('outreach')
+              }}
             />
           </div>
           <div className={activeModule === 'outreach' ? 'block h-full' : 'hidden'}>
-            <ColdOutreacher />
+            <ColdOutreacher initialContext={outreachTargetContext} />
           </div>
           <div className={activeModule === 'interview' ? 'block h-full' : 'hidden'}>
             <MockInterviewer 

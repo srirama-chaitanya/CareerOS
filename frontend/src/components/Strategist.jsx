@@ -1,13 +1,32 @@
-import React, { useState } from 'react';
-import { Calendar, Target, Video, Search, CheckCircle2, FileJson, ChevronRight, Lock } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Calendar, Target, Video, Search, CheckCircle2, ChevronRight, Lock, Plus, Trash2, Rocket, Database } from 'lucide-react';
 
 export default function Strategist({ initialTopic = "", setActiveModule, setProvingGroundsProblem, unlockedDay, setUnlockedDay }) {
-  const [plan, setPlan] = useState(null);
+  const [savedPlans, setSavedPlans] = useState([]);
+  const [activePlan, setActivePlan] = useState(null);
+  
   const [topic, setTopic] = useState(initialTopic);
   const [duration, setDuration] = useState(3);
   const [goal, setGoal] = useState('revision');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState(null);
+
+  const fetchPlans = async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/strategist/plans', {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` }
+      });
+      if (res.ok) {
+        setSavedPlans(await res.json());
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  useEffect(() => {
+    fetchPlans();
+  }, []);
 
   const executePlanGeneration = async (targetTopic, currentDuration, currentGoal) => {
     if (!targetTopic.trim()) return;
@@ -29,7 +48,18 @@ export default function Strategist({ initialTopic = "", setActiveModule, setProv
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.detail || "Failed to generate plan");
-      setPlan(data);
+      
+      const newPlan = {
+        id: data.id,
+        topic: targetTopic,
+        goal: currentGoal,
+        duration_days: currentDuration,
+        plan: data.plan
+      };
+      
+      setActivePlan(newPlan);
+      setTopic(''); // Clear search bar for new requests
+      await fetchPlans();
     } catch (err) {
       console.error(err);
       setError(err.message || "Failed to generate attack plan.");
@@ -43,10 +73,28 @@ export default function Strategist({ initialTopic = "", setActiveModule, setProv
     executePlanGeneration(topic, duration, goal);
   };
 
+  const handleDeletePlan = async (e, planId) => {
+    e.stopPropagation();
+    try {
+      const res = await fetch(`http://localhost:8000/api/strategist/plans/${planId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` }
+      });
+      if (res.ok) {
+        if (activePlan?.id === planId) {
+          setActivePlan(null);
+        }
+        await fetchPlans();
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   React.useEffect(() => {
     if (initialTopic && initialTopic !== topic) {
       setTopic(initialTopic);
-      setPlan(null);
+      setActivePlan(null);
       if (setUnlockedDay) setUnlockedDay(1);
       executePlanGeneration(initialTopic, duration, goal);
     }
@@ -54,12 +102,9 @@ export default function Strategist({ initialTopic = "", setActiveModule, setProv
 
   const getResourceIcon = (platform) => {
     switch (platform.toLowerCase()) {
-      case 'youtube':
-        return <Video className="w-4 h-4 text-red-400" />;
-      case 'google':
-        return <Search className="w-4 h-4 text-blue-400" />;
-      default:
-        return <Search className="w-4 h-4 text-slate-400" />;
+      case 'youtube': return <Video className="w-3.5 h-3.5 text-red-400" />;
+      case 'google': return <Search className="w-3.5 h-3.5 text-blue-400" />;
+      default: return <Search className="w-3.5 h-3.5 text-slate-400" />;
     }
   };
 
@@ -71,167 +116,239 @@ export default function Strategist({ initialTopic = "", setActiveModule, setProv
   };
 
   return (
-    <div className="p-8 h-full flex flex-col bg-slate-950">
-      <div className="mb-8">
-        <h2 className="text-2xl font-bold text-slate-200 flex items-center gap-3">
-          <Target className="w-6 h-6 text-emerald-400" />
-          The Strategist
-        </h2>
-        <p className="text-slate-400 mt-2 max-w-2xl">
-          Based on your interview evaluation, this personalized plan is designed to brutally attack your architectural blind spots and prepare you for a Staff-level evaluation.
-        </p>
-      </div>
+    <div className="flex flex-col h-full bg-black/40 relative overflow-hidden custom-scrollbar overflow-y-auto">
+      
+      {/* Spotlight Command Bar */}
+      <div className="w-full shrink-0 z-10 p-8 border-b border-white/10 bg-black/20 backdrop-blur-3xl">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+          
+          <div className="flex items-center gap-6 shrink-0">
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.15)]">
+              <Rocket className="w-6 h-6 text-emerald-400" />
+            </div>
+            <div>
+               <h2 className="text-2xl font-light text-white tracking-tight">Strategist</h2>
+               <p className="text-white/40 text-xs mt-1">Deploy an architectural study protocol.</p>
+            </div>
+          </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-hide pb-12">
-        {!plan ? (
-          <div className="max-w-xl mt-12 bg-slate-900 border border-slate-800 rounded-2xl p-8 shadow-xl">
-            <h3 className="text-xl font-bold text-slate-200 mb-4">Review & Plan Generator</h3>
-            <p className="text-slate-400 text-sm mb-6">
-              Enter a specific technical topic, select your learning goal, and set your available time constraint. The Strategist will generate a tailored execution plan.
-            </p>
-            <form onSubmit={handleGeneratePlan} className="space-y-4">
+          <form onSubmit={handleGeneratePlan} className="flex-1 flex flex-col md:flex-row gap-4 items-center w-full bg-white/5 border border-white/10 p-3 rounded-3xl backdrop-blur-md shadow-xl relative overflow-hidden group">
+            <div className="absolute inset-0 bg-gradient-to-r from-emerald-500/5 to-transparent opacity-50"></div>
+            
+            <div className="flex-1 relative z-10 w-full min-w-[200px]">
               <input
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder="e.g. System Design Caching or React Performance"
-                className="w-full bg-slate-950 border border-slate-700 text-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors"
+                placeholder="Target Topic (e.g. Go Concurrency)"
+                className="w-full bg-black/40 border border-white/5 text-white placeholder-white/20 rounded-2xl px-5 py-3 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all text-sm"
                 disabled={isGenerating}
               />
-              <div className="flex gap-4">
-                <select
-                  value={goal}
-                  onChange={(e) => setGoal(e.target.value)}
+            </div>
+
+            <div className="flex gap-4 relative z-10 w-full md:w-auto">
+              <select
+                value={goal}
+                onChange={(e) => setGoal(e.target.value)}
+                disabled={isGenerating}
+                className="bg-black/40 border border-white/5 text-white rounded-2xl px-5 py-3 appearance-none focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all cursor-pointer text-sm w-full md:w-36"
+              >
+                <option value="revision">Revision</option>
+                <option value="learn_from_scratch">From Scratch</option>
+                <option value="deep_dive">Deep Dive</option>
+              </select>
+
+              <div className="flex items-center bg-black/40 border border-white/5 rounded-2xl px-4 py-3 w-full md:w-28 focus-within:border-emerald-500/50 focus-within:ring-1 focus-within:ring-emerald-500/50 transition-all">
+                <input
+                  type="number"
+                  min="1"
+                  max="30"
+                  value={duration}
+                  onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
                   disabled={isGenerating}
-                  className="flex-1 bg-slate-950 border border-slate-700 text-slate-200 rounded-xl px-4 py-3 focus:outline-none focus:border-emerald-500 transition-colors cursor-pointer"
-                >
-                  <option value="revision">Revision / Interview Prep</option>
-                  <option value="learn_from_scratch">Learn from Scratch</option>
-                  <option value="deep_dive">Advanced Deep Dive</option>
-                </select>
-                <div className="flex items-center bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 focus-within:border-emerald-500 transition-colors shrink-0 w-32">
-                  <input
-                    type="number"
-                    min="1"
-                    max="14"
-                    value={duration}
-                    onChange={(e) => setDuration(parseInt(e.target.value) || 1)}
-                    disabled={isGenerating}
-                    className="w-full bg-transparent text-slate-200 focus:outline-none text-center"
-                  />
-                  <span className="text-slate-400 ml-2 text-sm">Days</span>
-                </div>
+                  className="w-full bg-transparent text-white focus:outline-none text-sm text-center"
+                />
+                <span className="text-white/40 text-[10px] font-bold uppercase tracking-wider ml-1">Days</span>
               </div>
+              
               <button
                 type="submit"
                 disabled={isGenerating || !topic.trim()}
-                onClick={() => { if (setUnlockedDay) setUnlockedDay(1); }}
-                className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 disabled:bg-slate-800 disabled:text-slate-500 text-white rounded-xl font-bold transition-all flex items-center justify-center gap-2"
+                className="px-6 py-3 bg-emerald-500 hover:bg-emerald-400 disabled:bg-white/10 disabled:text-white/30 text-emerald-950 rounded-2xl font-bold transition-all duration-300 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.3)] disabled:shadow-none hover:-translate-y-0.5 shrink-0"
               >
-                {isGenerating ? (
-                  <>
-                    <div className="w-4 h-4 border-2 border-slate-400 border-t-emerald-200 rounded-full animate-spin"></div>
-                    Generating Attack Plan...
-                  </>
-                ) : (
-                  <>Generate {duration}-Day Plan <ChevronRight className="w-4 h-4" /></>
-                )}
+                {isGenerating ? <div className="w-4 h-4 border-2 border-emerald-900/30 border-t-emerald-950 rounded-full animate-spin"></div> : <Target className="w-5 h-5" />}
               </button>
-              {error && <p className="text-red-400 text-sm mt-2">{error}</p>}
-            </form>
+            </div>
+          </form>
+
+        </div>
+        {error && (
+          <div className="max-w-6xl mx-auto mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-center text-red-400 text-sm">
+             {error}
           </div>
-        ) : (
-          <>
-            <div className="bg-slate-900/50 border border-slate-800 rounded-2xl p-6 mb-8 shadow-xl relative">
-              <button 
-                onClick={() => setPlan(null)}
-                className="absolute top-6 right-6 text-sm text-slate-400 hover:text-white bg-slate-800 px-3 py-1 rounded-lg transition-colors"
+        )}
+      </div>
+        
+      <div className="p-8 space-y-12 max-w-[1600px] w-full mx-auto pb-32">
+        {/* Horizontal Deck of Saved Plans */}
+        <div className="space-y-4">
+          <h3 className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400/80 ml-2 flex items-center gap-2">
+            <Database className="w-3 h-3" /> Deployed Protocols
+          </h3>
+          {savedPlans.length === 0 ? (
+            <div className="w-full p-8 border border-white/5 border-dashed rounded-3xl flex items-center justify-center bg-white/[0.01]">
+              <p className="text-white/30 text-sm">No strategic plans generated yet.</p>
+            </div>
+          ) : (
+            <div className="flex gap-6 overflow-x-auto pb-6 custom-scrollbar snap-x">
+            {savedPlans.map(p => (
+              <div 
+                key={p.id}
+                onClick={() => {
+                  setActivePlan(p);
+                  if (setUnlockedDay) setUnlockedDay(1);
+                }}
+                className={`snap-start shrink-0 w-80 group p-6 rounded-3xl cursor-pointer transition-all duration-300 flex flex-col gap-4 relative border shadow-xl ${
+                  activePlan?.id === p.id 
+                    ? 'bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_30px_rgba(16,185,129,0.15)]' 
+                    : 'bg-white/5 border-white/5 hover:border-emerald-500/20 hover:bg-white/10'
+                }`}
               >
-                New Plan
-              </button>
-              <div className="flex items-center gap-2 mb-2 text-emerald-400 font-semibold tracking-wide uppercase text-sm">
-                <Calendar className="w-4 h-4" />
-                {plan.duration_days}-Day Attack Plan
+                <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent rounded-3xl opacity-50 pointer-events-none"></div>
+                <div className="flex justify-between items-start relative z-10">
+                  <h4 className={`font-semibold text-lg line-clamp-2 pr-6 leading-relaxed ${activePlan?.id === p.id ? 'text-emerald-300' : 'text-white'}`}>
+                    {p.plan?.plan_title || p.topic}
+                  </h4>
+                  <button 
+                    onClick={(e) => handleDeletePlan(e, p.id)}
+                    className="absolute top-0 right-0 text-white/30 hover:text-red-400 opacity-0 group-hover:opacity-100 transition-opacity bg-black/50 p-2 rounded-xl border border-white/10"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="flex gap-2 mt-auto relative z-10">
+                  <span className={`text-[10px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-xl border ${activePlan?.id === p.id ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20' : 'bg-black/40 text-white/50 border-white/5'}`}>
+                    {p.duration_days} Days
+                  </span>
+                  <span className={`text-[10px] uppercase tracking-wider font-bold px-3 py-1.5 rounded-xl border ${activePlan?.id === p.id ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/20' : 'bg-black/40 text-white/50 border-white/5'}`}>
+                    {p.goal.replace('_', ' ')}
+                  </span>
+                </div>
               </div>
-              <h3 className="text-3xl font-bold text-slate-200">{plan.plan_title}</h3>
+            ))}
+            </div>
+          )}
+        </div>
+
+        {/* Horizontal Timeline Roadmap */}
+        {activePlan && (
+          <div className="animate-in fade-in slide-in-from-bottom-8 duration-700 w-full">
+            {/* Active Plan Header */}
+            <div className="mb-12">
+               <div className="inline-flex items-center gap-3 px-4 py-2 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 font-bold text-xs uppercase tracking-widest mb-6">
+                  <Calendar className="w-3.5 h-3.5" />
+                  {activePlan.duration_days}-Day Protocol
+                  <span className="w-1 h-1 rounded-full bg-emerald-400/50 mx-1"></span>
+                  {activePlan.goal.replace('_', ' ')}
+               </div>
+               <h3 className="text-4xl md:text-5xl font-light text-white tracking-tight leading-tight">
+                  {activePlan.plan?.plan_title || activePlan.topic}
+               </h3>
             </div>
 
-            <div className="space-y-6">
-              {plan.daily_schedule?.map((day) => {
+            <div className="flex flex-col gap-10 pb-12 pt-8 relative max-w-4xl mx-auto">
+              
+              {/* Vertical Connecting Line */}
+              <div className="absolute left-[3.25rem] top-12 bottom-12 w-0.5 bg-gradient-to-b from-emerald-500/50 via-white/10 to-transparent -z-10 hidden md:block"></div>
+
+              {activePlan.plan?.daily_schedule?.map((day, index) => {
                 const isLocked = day.day_number > unlockedDay;
                 return (
-                <div key={day.day_number} className={`bg-slate-900 border border-slate-800 rounded-xl overflow-hidden hover:border-slate-700 transition-all shadow-lg flex flex-col md:flex-row relative ${isLocked ? 'opacity-50 grayscale' : ''}`}>
-                  {isLocked && (
-                    <div className="absolute inset-0 z-10 bg-slate-950/40 backdrop-blur-[2px] flex items-center justify-center cursor-not-allowed">
-                      <div className="bg-slate-900 border border-slate-700 p-4 rounded-2xl flex flex-col items-center shadow-2xl">
-                        <Lock className="w-8 h-8 text-slate-500 mb-2" />
-                        <span className="text-slate-300 font-bold text-sm">Pass Day {day.day_number - 1} to Unlock</span>
-                      </div>
-                    </div>
-                  )}
-                  <div className="bg-slate-800/50 px-6 py-8 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col justify-center items-center w-full md:w-48 shrink-0">
-                    <span className="font-bold text-slate-300 text-xl mb-2 whitespace-nowrap">Day {day.day_number}</span>
-                    <span className="text-xs font-medium px-3 py-1 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-full">
-                      Execution
-                    </span>
+                <div key={day.day_number} className={`relative flex flex-col md:flex-row gap-8 items-start group ${isLocked ? 'opacity-40 grayscale' : 'is-active'}`}>
+                  
+                  {/* Timeline Node */}
+                  <div className={`flex items-center justify-center w-14 h-14 rounded-full border-[4px] border-black shrink-0 shadow-2xl z-10 transition-colors duration-500 md:mt-6 ${isLocked ? 'bg-white/10 text-white/30' : 'bg-emerald-500 text-emerald-950 shadow-[0_0_30px_rgba(16,185,129,0.5)]'}`}>
+                     {isLocked ? <Lock className="w-5 h-5" /> : <span className="font-extrabold text-xl">{day.day_number}</span>}
                   </div>
                   
-                  <div className="p-6 flex-1 flex flex-col md:flex-row gap-8">
-                    <div className="flex-1">
-                      <h4 className="text-xl font-bold text-blue-400 mb-4">{day.focus_area}</h4>
-                      <h5 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Action Items</h5>
-                      <ul className="space-y-3">
-                        {day.action_items?.map((item, idx) => (
-                          <li key={idx} className="flex items-start gap-2 text-sm text-slate-300 leading-relaxed">
-                            <CheckCircle2 className="w-4 h-4 text-emerald-500 mt-0.5 shrink-0" />
-                            <span>{item}</span>
-                          </li>
-                        ))}
-                      </ul>
+                  {/* Card */}
+                  <div className={`flex-1 w-full p-8 rounded-[2.5rem] backdrop-blur-xl border transition-all duration-300 relative shadow-2xl ${isLocked ? 'bg-white/5 border-white/5' : 'bg-[#0f1115] border-emerald-500/20 hover:border-emerald-500/40 hover:-translate-y-1'}`}>
+                    
+                    {!isLocked && <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent rounded-[2.5rem] opacity-50 pointer-events-none"></div>}
+
+                    <div className="mb-8 relative z-10">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest text-emerald-400/80 mb-3 block">Day {day.day_number} Focus</span>
+                      <h4 className="text-2xl font-medium text-white leading-tight">{day.focus_area}</h4>
                     </div>
 
-                    <div className="md:w-1/3 shrink-0">
-                      <h5 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Target Resources</h5>
-                      <div className="flex flex-col gap-2">
-                        {day.recommended_resources?.map((res, idx) => (
-                          <a
-                            key={idx}
-                            href={getResourceHref(res.platform, res.search_query)}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex items-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm font-medium rounded-lg border border-slate-700 hover:border-slate-600 transition-all shadow-sm"
-                            title={res.search_query}
-                          >
-                            {getResourceIcon(res.platform)}
-                            <span className="truncate">{res.search_query}</span>
-                          </a>
-                        ))}
-                      </div>
-                      
-                      {day.evaluation_task && !isLocked && (
-                        <div className="mt-8 pt-6 border-t border-slate-800">
-                          <button
-                            onClick={() => {
-                              if (setProvingGroundsProblem && setActiveModule) {
-                                setProvingGroundsProblem(day.evaluation_task);
-                                setActiveModule('proving_grounds');
-                              }
-                            }}
-                            className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-purple-600/20 hover:bg-purple-600/40 border border-purple-500/30 text-purple-300 rounded-xl font-bold transition-all"
-                          >
-                            <Target className="w-4 h-4" />
-                            Test Day {day.day_number} Skills <ChevronRight className="w-4 h-4" />
-                          </button>
-                        </div>
-                      )}
+                    <div className="space-y-8 relative z-10">
+                       <div>
+                         <h5 className="text-[10px] font-extrabold text-white/30 uppercase tracking-widest mb-4">Action Protocol</h5>
+                         <ul className="space-y-4">
+                           {day.action_items?.map((item, idx) => (
+                             <li key={idx} className="flex items-start gap-4 text-sm text-white/70 leading-relaxed bg-white/[0.02] p-4 rounded-2xl border border-white/5">
+                               <CheckCircle2 className="w-5 h-5 text-emerald-500/70 shrink-0" />
+                               <span>{item}</span>
+                             </li>
+                           ))}
+                         </ul>
+                       </div>
+
+                       {day.recommended_resources?.length > 0 && (
+                         <div className="pt-6 border-t border-white/5">
+                           <h5 className="text-[10px] font-extrabold text-white/30 uppercase tracking-widest mb-4">Resource Nodes</h5>
+                           <div className="flex flex-wrap gap-3">
+                             {day.recommended_resources?.map((res, idx) => (
+                               <a
+                                 key={idx}
+                                 href={getResourceHref(res.platform, res.search_query)}
+                                 target="_blank"
+                                 rel="noopener noreferrer"
+                                 className="inline-flex items-center gap-2 px-4 py-3 bg-black/40 hover:bg-emerald-500/10 text-white/60 hover:text-emerald-300 text-xs font-bold rounded-xl border border-white/10 hover:border-emerald-500/30 transition-all duration-300 shadow-inner"
+                               >
+                                 {getResourceIcon(res.platform)}
+                                 <span className="truncate max-w-[180px]">{res.search_query}</span>
+                               </a>
+                             ))}
+                           </div>
+                         </div>
+                       )}
+                       
+                       {day.evaluation_task && !isLocked && (
+                         <div className="pt-6 mt-4">
+                           <button
+                             onClick={() => {
+                               if (setProvingGroundsProblem && setActiveModule) {
+                                 setProvingGroundsProblem(day.evaluation_task);
+                                 setActiveModule('proving_grounds');
+                               }
+                             }}
+                             className="w-full inline-flex items-center justify-center gap-2 px-6 py-4 bg-emerald-600/10 hover:bg-emerald-500 text-emerald-400 hover:text-emerald-950 rounded-2xl font-bold transition-all duration-300 text-sm group shadow-[0_0_20px_rgba(16,185,129,0.1)] hover:shadow-[0_0_30px_rgba(16,185,129,0.4)]"
+                           >
+                             <Target className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                             Initiate Proving Ground <ChevronRight className="w-5 h-5 opacity-50 group-hover:opacity-100 group-hover:translate-x-1 transition-all" />
+                           </button>
+                         </div>
+                       )}
                     </div>
                   </div>
+                  
                 </div>
                 );
               })}
-            </div>
 
-          </>
+              {activePlan.plan?.daily_schedule?.length > 0 && (
+                 <div className="relative flex flex-col md:flex-row gap-8 items-center mt-4">
+                    <div className="inline-flex items-center justify-center w-14 h-14 rounded-full border-[4px] border-black bg-white/5 text-white/30 shadow-xl z-10 md:ml-0">
+                       <Target className="w-6 h-6" />
+                    </div>
+                    <p className="text-xs font-bold uppercase tracking-widest text-white/30">Protocol Complete</p>
+                 </div>
+              )}
+
+            </div>
+            
+          </div>
         )}
       </div>
     </div>

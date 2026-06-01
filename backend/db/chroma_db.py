@@ -74,15 +74,15 @@ def process_and_store_pdf(file_bytes: bytes, resume_id: str):
     finally:
         os.remove(temp_path)
 
-def retrieve_context(query: str, n_results: int = 5, resume_id: str = None) -> str:
+def retrieve_context(query: str, n_results: int = 5, resume_id: str = None, user_id: str = None) -> str:
     collection = get_collection()
     if collection.count() == 0:
         return "No resume data available."
         
     # Dynamically find the active resume if resume_id is not explicitly provided
-    if not resume_id:
+    if not resume_id and user_id:
         from db.database import db_get_active_resume_id
-        resume_id = db_get_active_resume_id()
+        resume_id = db_get_active_resume_id(user_id)
         
     if not resume_id:
         return "No active resume selected."

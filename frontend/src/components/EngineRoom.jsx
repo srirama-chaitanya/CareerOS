@@ -123,7 +123,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
   return (
     <div className="max-w-6xl mx-auto py-12 px-8">
       <div className="mb-12 text-center">
-        <h2 className="text-4xl font-light text-white tracking-tight">The Engine Room</h2>
+        <h2 className="text-4xl font-light text-white tracking-tight">Context Engine</h2>
         <p className="text-white/50 mt-3 text-sm max-w-2xl mx-auto">
           Manage your high-performance resumes. Upload tailored profiles, label their specialization, and toggle the active target. The LangGraph agents will dynamically scope their context to the active resume deck.
         </p>
@@ -177,7 +177,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
 
         {/* Right Column: Resume Deck Manager List */}
         <div className="lg:col-span-2 space-y-6">
-          <div className="bg-white/5 border border-white/10 rounded-3xl p-8 backdrop-blur-sm min-h-[300px] flex flex-col">
+          <div className="bg-white/[0.02] border border-white/[0.05] rounded-3xl p-8 backdrop-blur-3xl min-h-[300px] flex flex-col shadow-[0_8px_32px_rgba(0,0,0,0.3)]">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-medium text-white tracking-tight">Active Resume Deck</h3>
               <span className="text-xs font-semibold px-3 py-1 bg-white/5 rounded-full border border-white/10 text-white/60">
@@ -198,22 +198,23 @@ export default function EngineRoom({ onActiveResumeChange }) {
                 {resumes.map((resume) => (
                   <div 
                     key={resume.id} 
-                    className={`relative rounded-2xl p-5 border backdrop-blur-sm transition-all duration-300 flex flex-col justify-between group ${
+                    className={`relative rounded-3xl p-6 border backdrop-blur-2xl transition-all duration-500 ease-out flex flex-col justify-between group overflow-hidden ${
                       resume.is_active === 1
-                        ? 'border-blue-500 bg-blue-500/5 shadow-[0_0_20px_rgba(59,130,246,0.15)]'
-                        : 'border-white/10 bg-white/5 hover:border-white/20'
+                        ? 'bg-gradient-to-br from-indigo-500/10 to-cyan-500/10 border-indigo-500/30 shadow-[0_0_30px_rgba(99,102,241,0.2)] transform -translate-y-1'
+                        : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] hover:border-white/20'
                     }`}
                   >
-                    <div>
+                    {resume.is_active === 1 && <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-transparent opacity-50"></div>}
+                    <div className="relative z-10">
                       <div className="flex justify-between items-start mb-3">
                         <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/70 group-hover:scale-105 transition-transform duration-300">
                           📄
                         </div>
                         
                         {resume.is_active === 1 ? (
-                          <span className="text-[10px] tracking-wider uppercase font-extrabold px-2.5 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full shadow-lg shadow-blue-500/5 flex items-center animate-pulse">
-                            <span className="w-1.5 h-1.5 bg-blue-400 rounded-full mr-1.5"></span>
-                            Active Agent Context
+                          <span className="text-[10px] tracking-wider uppercase font-extrabold px-3 py-1.5 bg-gradient-to-r from-indigo-500/20 to-cyan-500/20 text-cyan-300 border border-indigo-500/30 rounded-full shadow-lg shadow-indigo-500/10 flex items-center">
+                            <span className="w-1.5 h-1.5 bg-cyan-400 rounded-full mr-1.5 animate-pulse"></span>
+                            Active Context
                           </span>
                         ) : (
                           <button 
