@@ -393,7 +393,7 @@ export default function MockInterviewer({ activeResumeId, setActiveModule, setSt
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-12 px-8 h-full flex flex-col justify-between">
+    <div className="max-w-5xl mx-auto py-8 md:py-12 px-4 md:px-8 h-full flex flex-col justify-between">
       {/* Top Bar */}
       <div className="flex justify-between items-center mb-12">
         <div>

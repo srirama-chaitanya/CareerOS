@@ -114,7 +114,7 @@ function ColdOutreacherContent({ initialContext = '' }) {
   })
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-8">
+    <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 md:px-8">
       <div className="mb-10 text-center">
         <h2 className="text-4xl font-light text-white tracking-tight">Outreach Agent</h2>
         <p className="text-white/50 mt-3 text-sm max-w-2xl mx-auto">

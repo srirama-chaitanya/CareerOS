@@ -135,7 +135,7 @@ function App() {
           onLogout={handleLogout}
         />
         
-        <main className="flex-1 overflow-y-auto relative z-10 scrollbar-hide">
+        <main className="flex-1 overflow-y-auto relative z-10 scrollbar-hide pt-14 md:pt-0">
           <div className={activeModule === 'engine' ? 'block h-full' : 'hidden'}>
             <EngineRoom onActiveResumeChange={refreshActiveResume} />
           </div>

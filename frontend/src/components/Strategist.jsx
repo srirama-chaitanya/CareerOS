@@ -99,7 +99,7 @@ export default function Strategist({ initialTopic = "", setActiveModule }) {
 
       {/* Command Bar */}
       <div className="w-full shrink-0 z-10 p-8 border-b border-white/10 bg-black/20 backdrop-blur-3xl">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-8">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4 md:gap-8">
           <div className="flex items-center gap-6 shrink-0">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_30px_rgba(16,185,129,0.15)]">
               <Rocket className="w-6 h-6 text-emerald-400" />
@@ -158,7 +158,7 @@ export default function Strategist({ initialTopic = "", setActiveModule }) {
         )}
       </div>
 
-      <div className="p-8 space-y-10 max-w-[1600px] w-full mx-auto pb-32">
+      <div className="p-4 md:p-8 space-y-10 max-w-[1600px] w-full mx-auto pb-32">
 
         {/* Saved Plans Deck */}
         <div className="space-y-4">

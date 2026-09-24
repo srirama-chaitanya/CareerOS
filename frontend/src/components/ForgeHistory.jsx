@@ -73,7 +73,7 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-12 px-6 md:px-12 h-full relative z-10">
+    <div className="max-w-5xl mx-auto py-8 md:py-12 px-4 md:px-6 lg:px-12 h-full relative z-10">
       <div className="mb-12 text-center md:text-left">
         <h2 className="text-4xl font-light text-white tracking-tight flex items-center justify-center md:justify-start gap-4 mb-4">
           <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20 shadow-[0_0_20px_rgba(99,102,241,0.2)]">

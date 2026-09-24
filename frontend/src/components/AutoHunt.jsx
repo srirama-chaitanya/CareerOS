@@ -54,7 +54,7 @@ export default function AutoHunt({
   const noResume = !activeResumeId
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-8 animate-in fade-in duration-500">
+    <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 md:px-8 animate-in fade-in duration-500">
       <div className="mb-12 text-center">
         <h2 className="text-4xl font-light text-white tracking-tight">Job Radar</h2>
         <p className="text-white/50 mt-3 text-sm max-w-2xl mx-auto">
@@ -173,7 +173,7 @@ export default function AutoHunt({
             </div>
 
             {/* Active profile context + Deploy button */}
-            <div className="flex items-center justify-between gap-4 pt-4 border-t border-white/5">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pt-4 border-t border-white/5">
               <div className="text-xs text-white/40 flex items-center gap-2">
                 {activeResumeId ? (
                   <>

@@ -121,7 +121,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
   }
 
   return (
-    <div className="max-w-6xl mx-auto py-12 px-8">
+    <div className="max-w-6xl mx-auto py-8 md:py-12 px-4 md:px-8">
       <div className="mb-12 text-center">
         <h2 className="text-4xl font-light text-white tracking-tight">Context Engine</h2>
         <p className="text-white/50 mt-3 text-sm max-w-2xl mx-auto">
@@ -129,7 +129,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         
         {/* Left Column: Dropzone & Upload Status */}
         <div className="lg:col-span-1 space-y-6">
