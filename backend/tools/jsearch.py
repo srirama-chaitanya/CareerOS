@@ -38,10 +38,6 @@ async def search_jobs(query: str, location: str = "remote", num_pages: int = 2, 
             "num_pages": str(num_pages),
             "date_posted": date_posted,
         }
-        if job_type:
-            params["employment_types"] = job_type
-        if experience_level:
-            params["job_requirements"] = experience_level
 
         async with httpx.AsyncClient(timeout=20.0) as client:
             response = await client.get(url, headers=headers, params=params)
@@ -61,6 +57,7 @@ async def search_jobs(query: str, location: str = "remote", num_pages: int = 2, 
                 "job_posted_at_datetime_utc": job.get("job_posted_at_datetime_utc")
             })
         return jobs
+
 
     try:
         # First attempt: last 3 days
