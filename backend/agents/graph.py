@@ -52,14 +52,17 @@ async def hunt_jobs(state: AgentState):
     search_string = state.get("search_string", "")
     active_resume_text = state.get("active_resume_text", "")
     location = state.get("location", "remote")
-    job_type = state.get("job_type", "full-time")
+    job_type = state.get("job_type", "")
     experience_level = state.get("experience_level", "")
-    
+    extra_info = state.get("extra_info", "")
+
     # Build search query dynamically combining filters
     search_query = f"{experience_level} {search_string} {job_type}".strip()
-    
+
     # Execute the JSearch query (fully async, non-blocking)
-    raw_jobs = await search_jobs(search_query, location)
+    raw_jobs = await search_jobs(search_query, location, job_type=job_type, experience_level=experience_level, extra_info=extra_info)
+
+
     
     if not raw_jobs:
         return {"status": "completed", "job_results": []}
