@@ -76,6 +76,8 @@ async def search_jobs(query: str, location: str = "remote", num_pages: int = 2, 
 
         # Second attempt: last week
         logging.info(f"JSearch: 0 results for 3days, retrying with 'week' for '{full_query}'")
+        import asyncio
+        await asyncio.sleep(1) # Prevent RapidAPI back-to-back request blocks
         jobs = await _fetch("week")
         if jobs:
             logging.info(f"JSearch: {len(jobs)} jobs found (week) for '{full_query}'")
@@ -86,5 +88,6 @@ async def search_jobs(query: str, location: str = "remote", num_pages: int = 2, 
         return []
 
     except Exception as e:
-        logging.error(f"JSearch API error: {str(e)}")
+        logging.error(f"JSearch API error: {repr(e)}")
         return []
+
