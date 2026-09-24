@@ -393,119 +393,141 @@ export default function MockInterviewer({ activeResumeId, setActiveModule, setSt
   }
 
   return (
-    <div className="max-w-5xl mx-auto py-8 md:py-12 px-4 md:px-8 h-full flex flex-col justify-between">
-      {/* Top Bar */}
-      <div className="flex justify-between items-center mb-12">
+    <div className="w-full h-full flex flex-col px-4 md:px-8 py-4 md:py-8 max-w-5xl mx-auto">
+
+      {/* ── Top Bar ── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 shrink-0">
         <div>
-          <h2 className="text-3xl font-light text-white tracking-tight flex items-center gap-3">
-            The Forge 
-          </h2>
-          <p className="text-white/50 mt-1 text-sm">Stateful technical crucible.</p>
+          <h2 className="text-2xl md:text-3xl font-light text-white tracking-tight">The Forge</h2>
+          <p className="text-white/50 mt-1 text-xs md:text-sm">Stateful technical crucible.</p>
         </div>
-        
-        <div className="flex gap-4 items-center">
-          <select 
+
+        <div className="flex items-center gap-3 flex-wrap">
+          <select
             value={targetCompany}
             onChange={(e) => {
               setTargetCompany(e.target.value)
               if (chatHistory.length > 0) handleEndInterview()
             }}
-            className="bg-zinc-900 border border-white/20 text-white rounded-xl px-4 py-2 focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm shadow-lg appearance-none cursor-pointer"
+            className="flex-1 sm:flex-none min-w-0 bg-zinc-900 border border-white/20 text-white rounded-xl px-3 py-2 focus:outline-none focus:border-blue-500 text-xs md:text-sm shadow-lg appearance-none cursor-pointer"
           >
-            <option className="bg-zinc-900 text-white py-2" value="none">Generic (Rigorous Staff Engineer)</option>
-            <option className="bg-zinc-900 text-white py-2" value="google">Google</option>
-            <option className="bg-zinc-900 text-white py-2" value="amazon">Amazon</option>
-            <option className="bg-zinc-900 text-white py-2" value="meta">Meta</option>
+            <option className="bg-zinc-900 text-white" value="none">Generic (Staff Engineer)</option>
+            <option className="bg-zinc-900 text-white" value="google">Google</option>
+            <option className="bg-zinc-900 text-white" value="amazon">Amazon</option>
+            <option className="bg-zinc-900 text-white" value="meta">Meta</option>
           </select>
+
           {chatHistory.length > 0 && (
-            <button 
-                onClick={handleEndInterview}
-                className="text-xs text-red-400/80 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-xl transition-colors"
+            <button
+              onClick={handleEndInterview}
+              className="text-xs text-red-400/80 hover:text-red-400 bg-red-500/10 hover:bg-red-500/20 px-3 py-2 rounded-xl transition-colors shrink-0"
             >
-                End Session
+              End Session
             </button>
           )}
         </div>
       </div>
 
+      {/* ── Error Banner ── */}
       {error && (
-        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-sm absolute top-24 left-1/2 -translate-x-1/2 z-50">
+        <div className="mb-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-xs md:text-sm text-center shrink-0">
           {error}
         </div>
       )}
 
-      {/* Cinematic Center Stage */}
-      <div className="flex-1 flex flex-col items-center justify-center relative mt-8 mb-16">
-          <div className="flex flex-col items-center justify-center w-full max-w-md mx-auto transition-all duration-500">
-            {/* The Avatar */}
-            <div className={`relative w-64 h-64 rounded-full flex items-center justify-center transition-all duration-700 ${isSpeaking ? 'scale-105' : 'scale-100'} ${chatHistory.length === 0 ? 'opacity-50 grayscale' : 'opacity-100'}`}>
-                {/* Speaking Aura */}
-                <div className={`absolute inset-0 rounded-full transition-all duration-300 ${isSpeaking ? 'bg-cyan-500/30 blur-2xl scale-125 animate-pulse' : 'bg-transparent blur-md scale-100'}`}></div>
-                
-                {/* Listening Aura */}
-                <div className={`absolute inset-0 rounded-full transition-all duration-300 ${isListening ? 'bg-red-500/20 blur-xl scale-110 animate-pulse' : 'bg-transparent blur-md scale-100'}`}></div>
-                
-                <img src="/ai_avatar.png" alt="AI Interviewer" className={`w-full h-full object-cover rounded-full relative z-10 border-4 border-zinc-800 shadow-2xl transition-all duration-700 ${chatHistory.length === 0 ? 'grayscale' : ''}`} />
-            </div>
+      {/* ── Cinematic Stage ── */}
+      <div className="flex-1 flex flex-col items-center justify-center relative">
 
-            {/* Status Text */}
-            <div className="mt-8 text-center h-8">
-                <h3 className="text-xl font-medium text-white tracking-wide">
-                    {targetCompany !== 'none' ? `${targetCompany.charAt(0).toUpperCase() + targetCompany.slice(1)} AI` : 'Interviewer Core'}
-                </h3>
-                <p className={`text-sm mt-2 transition-opacity ${chatHistory.length === 0 ? 'text-white/50' : isSpeaking ? 'text-cyan-400 opacity-100' : isListening ? 'text-red-400 opacity-100' : loading ? 'text-blue-400 opacity-100' : 'text-white/30 opacity-100'}`}>
-                    {chatHistory.length === 0 ? 'Dormant. Click the red button to begin.' : isSpeaking ? 'Speaking...' : isListening ? 'Listening (Speak freely)...' : loading ? 'Thinking...' : 'Waiting'}
-                </p>
-            </div>
+        <div className="flex flex-col items-center justify-center w-full max-w-sm mx-auto">
 
-            {/* The Big Record/Start Button */}
-            <div className="mt-12 flex justify-center">
-                <button
-                    onClick={chatHistory.length === 0 ? handleStartInterview : toggleListen}
-                    disabled={loading}
-                    className={`relative w-20 h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
-                        chatHistory.length === 0
-                        ? 'bg-blue-600 hover:bg-blue-500 shadow-[0_0_30px_rgba(37,99,235,0.4)] text-white scale-100'
-                        : isListening 
-                        ? 'bg-red-500 hover:bg-red-600 shadow-[0_0_30px_rgba(239,68,68,0.6)] scale-110 text-white' 
-                        : isSpeaking 
-                        ? 'bg-amber-500/20 border-2 border-amber-500/50 hover:bg-amber-500/40 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]'
-                        : 'bg-zinc-800 border-2 border-white/20 hover:border-white/50 hover:bg-zinc-700 text-white shadow-lg'
-                    }`}
-                    title={chatHistory.length === 0 ? "Begin Interview" : isListening ? "Stop Recording & Submit" : isSpeaking ? "Interrupt AI" : "Start Speaking"}
-                >
-                    {chatHistory.length === 0 ? (
-                        <svg className="w-8 h-8 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> // Play icon
-                    ) : isListening ? (
-                        <div className="w-6 h-6 bg-white rounded-sm"></div> // Stop square
-                    ) : isSpeaking ? (
-                         <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"></path></svg> // Interrupt icon (Stop/X)
-                    ) : (
-                        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"></path></svg>
-                    )}
-                </button>
-            </div>
-            {/* Instruction hint */}
-            <p className="mt-6 text-xs text-white/20 font-medium tracking-wider uppercase">
-                {chatHistory.length === 0 ? 'Ensure active resume is selected' : isListening ? 'Click stop when finished speaking' : isSpeaking ? 'Click to interrupt' : 'Click microphone to speak'}
+          {/* Avatar */}
+          <div className={`relative w-36 h-36 sm:w-48 sm:h-48 md:w-60 md:h-60 rounded-full flex items-center justify-center transition-all duration-700 ${isSpeaking ? 'scale-105' : 'scale-100'} ${chatHistory.length === 0 ? 'opacity-50 grayscale' : 'opacity-100'}`}>
+            {/* Speaking Aura */}
+            <div className={`absolute inset-0 rounded-full transition-all duration-300 ${isSpeaking ? 'bg-cyan-500/30 blur-2xl scale-125 animate-pulse' : 'bg-transparent'}`} />
+            {/* Listening Aura */}
+            <div className={`absolute inset-0 rounded-full transition-all duration-300 ${isListening ? 'bg-red-500/20 blur-xl scale-110 animate-pulse' : 'bg-transparent'}`} />
+            <img
+              src="/ai_avatar.png"
+              alt="AI Interviewer"
+              className={`w-full h-full object-cover rounded-full relative z-10 border-4 border-zinc-800 shadow-2xl transition-all duration-700 ${chatHistory.length === 0 ? 'grayscale' : ''}`}
+            />
+          </div>
+
+          {/* Name + Status */}
+          <div className="mt-5 text-center">
+            <h3 className="text-lg md:text-xl font-medium text-white tracking-wide">
+              {targetCompany !== 'none' ? `${targetCompany.charAt(0).toUpperCase() + targetCompany.slice(1)} AI` : 'Interviewer Core'}
+            </h3>
+            <p className={`text-xs md:text-sm mt-1 transition-colors ${
+              chatHistory.length === 0 ? 'text-white/50'
+              : isSpeaking ? 'text-cyan-400'
+              : isListening ? 'text-red-400'
+              : loading ? 'text-blue-400'
+              : 'text-white/30'
+            }`}>
+              {chatHistory.length === 0
+                ? 'Dormant. Tap the button to begin.'
+                : isSpeaking ? 'Speaking...'
+                : isListening ? 'Listening — speak freely...'
+                : loading ? 'Thinking...'
+                : 'Waiting for your response'}
             </p>
           </div>
-        {/* Evaluation Prompt Overlay */}
+
+          {/* Record / Start Button */}
+          <div className="mt-8 md:mt-10 flex justify-center">
+            <button
+              onClick={chatHistory.length === 0 ? handleStartInterview : toggleListen}
+              disabled={loading}
+              className={`relative w-16 h-16 md:w-20 md:h-20 rounded-full flex items-center justify-center transition-all duration-300 ${
+                chatHistory.length === 0
+                  ? 'bg-blue-600 hover:bg-blue-500 shadow-[0_0_30px_rgba(37,99,235,0.4)] text-white'
+                  : isListening
+                  ? 'bg-red-500 hover:bg-red-600 shadow-[0_0_30px_rgba(239,68,68,0.6)] scale-110 text-white'
+                  : isSpeaking
+                  ? 'bg-amber-500/20 border-2 border-amber-500/50 hover:bg-amber-500/40 text-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.3)]'
+                  : 'bg-zinc-800 border-2 border-white/20 hover:border-white/50 hover:bg-zinc-700 text-white shadow-lg'
+              }`}
+              title={chatHistory.length === 0 ? 'Begin Interview' : isListening ? 'Stop Recording & Submit' : isSpeaking ? 'Interrupt AI' : 'Start Speaking'}
+            >
+              {chatHistory.length === 0 ? (
+                <svg className="w-7 h-7 ml-1" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+              ) : isListening ? (
+                <div className="w-5 h-5 bg-white rounded-sm" />
+              ) : isSpeaking ? (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 10a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+              ) : (
+                <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"/></svg>
+              )}
+            </button>
+          </div>
+
+          {/* Hint text */}
+          <p className="mt-4 text-[10px] md:text-xs text-white/20 font-medium tracking-wider uppercase text-center">
+            {chatHistory.length === 0
+              ? 'Ensure active resume is selected'
+              : isListening ? 'Click stop when finished speaking'
+              : isSpeaking ? 'Click to interrupt'
+              : 'Click microphone to speak'}
+          </p>
+        </div>
+
+        {/* ── Evaluation Prompt Overlay ── */}
         {showEvalPrompt && !isEvaluating && (
-          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl">
-            <div className="bg-zinc-900 border border-white/10 p-8 rounded-2xl shadow-2xl max-w-md text-center">
-              <h3 className="text-2xl font-semibold text-white mb-2">Interview Concluded</h3>
-              <p className="text-white/60 mb-6 text-sm">Would you like to store this session and receive an AI-generated Staff Engineer review of your performance?</p>
-              <div className="flex gap-4 justify-center">
-                <button 
+          <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm rounded-3xl p-4">
+            <div className="bg-zinc-900 border border-white/10 p-6 md:p-8 rounded-2xl shadow-2xl w-full max-w-sm text-center">
+              <h3 className="text-xl md:text-2xl font-semibold text-white mb-2">Interview Concluded</h3>
+              <p className="text-white/60 mb-6 text-xs md:text-sm">Would you like to store this session and receive an AI-generated Staff Engineer review?</p>
+              <div className="flex gap-3 justify-center">
+                <button
                   onClick={handleDiscardSession}
-                  className="px-6 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 transition-colors"
+                  className="flex-1 px-4 py-2.5 rounded-xl border border-white/10 text-white/70 hover:bg-white/5 transition-colors text-sm"
                 >
                   Discard
                 </button>
-                <button 
+                <button
                   onClick={handleEvaluateSession}
-                  className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg transition-colors"
+                  className="flex-1 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-lg transition-colors text-sm"
                 >
                   Save & Evaluate
                 </button>
@@ -514,11 +536,11 @@ export default function MockInterviewer({ activeResumeId, setActiveModule, setSt
           </div>
         )}
 
-        {/* Evaluating Loading State */}
+        {/* ── Evaluating Spinner Overlay ── */}
         {isEvaluating && (
-          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/60 backdrop-blur-sm rounded-3xl">
-             <div className="w-12 h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4"></div>
-             <p className="text-white/70 animate-pulse font-medium tracking-wide">Analyzing Transcript...</p>
+          <div className="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/70 backdrop-blur-sm rounded-3xl">
+            <div className="w-10 h-10 md:w-12 md:h-12 border-4 border-blue-500/30 border-t-blue-500 rounded-full animate-spin mb-4" />
+            <p className="text-white/70 animate-pulse font-medium tracking-wide text-sm">Analyzing Transcript...</p>
           </div>
         )}
       </div>
