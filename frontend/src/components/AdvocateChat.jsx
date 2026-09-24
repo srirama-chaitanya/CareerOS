@@ -34,7 +34,7 @@ export default function AdvocateChat() {
                 if (e.key === 'Enter') {
                   const text = e.target.value
                   e.target.value = ''
-                  const res = await fetch('http://localhost:8000/api/chat', {
+                  const res = await fetch(import.meta.env.VITE_API_URL + '/api/chat', {
                     method: 'POST',
                     headers: { 
                       'Content-Type': 'application/json',

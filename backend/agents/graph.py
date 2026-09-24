@@ -1,8 +1,8 @@
 from typing import TypedDict, Optional, List, Dict
 from langgraph.graph import StateGraph, START, END
 from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
-from langchain_google_genai import ChatGoogleGenerativeAI
 from tools.jsearch import search_jobs
+from tools.llm_pool import get_llm, get_creative_llm, invoke_with_retry, invoke_with_retry_sync, astream_with_retry
 from db.database import db_get_active_resume_id, db_get_all_resumes, db_get_resume_text
 import json
 import os
@@ -36,9 +36,8 @@ class AgentState(TypedDict):
 # Load environment variables from .env
 load_dotenv()
 
-# We will use gemini-2.5-flash as requested.
-api_key = os.environ.get("GOOGLE_API_KEY") or "missing_api_key"
-llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0, google_api_key=api_key, max_retries=0)
+# LLM is sourced from the rotation pool — do not instantiate directly here.
+# Use get_llm() / get_creative_llm() per-call to rotate keys automatically.
 
 SYSTEM_PROMPT = """You are an Elite Technical Career Strategist.
 Currently standing by for instructions."""
@@ -49,7 +48,7 @@ def analyze_profile(state: AgentState):
         "status": "ready"
     }
 
-def hunt_jobs(state: AgentState):
+async def hunt_jobs(state: AgentState):
     search_string = state.get("search_string", "")
     active_resume_text = state.get("active_resume_text", "")
     location = state.get("location", "remote")
@@ -59,8 +58,8 @@ def hunt_jobs(state: AgentState):
     # Build search query dynamically combining filters
     search_query = f"{experience_level} {search_string} {job_type}".strip()
     
-    # Execute the JSearch query directly
-    raw_jobs = search_jobs(search_query, location)
+    # Execute the JSearch query (fully async, non-blocking)
+    raw_jobs = await search_jobs(search_query, location)
     
     if not raw_jobs:
         return {"status": "completed", "job_results": []}
@@ -87,7 +86,7 @@ JOBS TO EVALUATE:
         match_prompt += f"\n[Job {i}]\nTitle: {job['job_title']}\nCompany: {job['employer_name']}\nDescription: {job['job_description'][:500]}...\n"
 
     try:
-        match_response = llm.invoke([HumanMessage(content=match_prompt)])
+        match_response = await invoke_with_retry(get_llm(), [HumanMessage(content=match_prompt)])
         raw_json = match_response.content.strip()
         if raw_json.startswith("```json"):
             raw_json = raw_json[7:-3]
@@ -159,8 +158,9 @@ Output your response ONLY as a valid JSON object with the following structure:
 
 Do not wrap the JSON in markdown blocks like ```json. Respond ONLY with raw JSON."""
 
+    draft_response = None
     try:
-        draft_response = llm.invoke([HumanMessage(content=system_prompt)])
+        draft_response = invoke_with_retry_sync([HumanMessage(content=system_prompt)])
         raw_json = draft_response.content.strip()
         
         # Strip markdown tags if LLM ignores instruction
@@ -175,7 +175,7 @@ Do not wrap the JSON in markdown blocks like ```json. Respond ONLY with raw JSON
     except Exception as e:
         print(f"Error parsing draft JSON: {e}")
         subject = "Software Engineering Role"
-        body = draft_response.content.strip()
+        body = draft_response.content.strip() if draft_response else "Failed to generate email draft."
     
     return {
         "status": "drafted",
@@ -250,7 +250,7 @@ Respond ONLY with your next conversational turn. Do not output internal thoughts
             messages.append(AIMessage(content=msg.get("content", "")))
             
     try:
-        response = llm.invoke(messages)
+        response = invoke_with_retry_sync(messages)
         new_history = chat_history + [{"role": "assistant", "content": response.content.strip()}]
         return {
             "status": "interview_ready",
@@ -319,7 +319,7 @@ INTERVIEW TRANSCRIPT:
 {transcript_str}"""
 
     try:
-        response = llm.invoke([HumanMessage(content=system_prompt)])
+        response = invoke_with_retry_sync([HumanMessage(content=system_prompt)])
         raw_json = response.content.strip()
         
         if raw_json.startswith("```json"):
@@ -350,7 +350,7 @@ def generate_study_plan(state: AgentState):
     evaluation_result = state.get("evaluation_result", {})
     user_preferences = state.get("user_preferences", {})
     study_topic = state.get("study_topic")
-    study_duration = state.get("study_duration", 3)
+    study_duration = state.get("duration_days", state.get("study_duration", 3))
     study_goal = state.get("study_goal", "revision")
     
     if study_topic:
@@ -399,10 +399,8 @@ JSON SCHEMA:
   ]
 }}"""
 
-    llm_creative = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.2, google_api_key=api_key, max_retries=0)
-    
     try:
-        response = llm_creative.invoke([HumanMessage(content=system_prompt)])
+        response = invoke_with_retry_sync([HumanMessage(content=system_prompt)], max_retries=3)
         raw_json = response.content.strip()
         
         if raw_json.startswith("```json"):
@@ -520,5 +518,5 @@ Respond ONLY with your next conversational turn. Do not output internal thoughts
         elif msg.get("role") == "assistant":
             messages.append(AIMessage(content=msg.get("content", "")))
             
-    async for chunk in llm.astream(messages):
+    async for chunk in astream_with_retry(get_llm(), messages):
         yield chunk.content

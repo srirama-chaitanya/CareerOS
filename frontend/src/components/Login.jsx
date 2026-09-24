@@ -17,7 +17,7 @@ export default function Login({ onLoginSuccess }) {
     const endpoint = isRegistering ? '/api/auth/register' : '/api/auth/login';
     
     try {
-      const response = await fetch(`http://localhost:8000${endpoint}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}${endpoint}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password })
@@ -42,7 +42,7 @@ export default function Login({ onLoginSuccess }) {
     setLoading(true);
     
     try {
-      const response = await fetch('http://localhost:8000/api/auth/google', {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/auth/google', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ credential: credentialResponse.credential })

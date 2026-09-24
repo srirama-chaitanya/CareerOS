@@ -7,10 +7,11 @@ export default function EngineRoom({ onActiveResumeChange }) {
   const [selectedFile, setSelectedFile] = useState(null)
   const [labelInput, setLabelInput] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
   const fetchResumes = async () => {
     try {
-      const res = await fetch('http://localhost:8000/api/resumes', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/resumes', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` }
       })
       if (res.ok) {
@@ -60,7 +61,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
     formData.append('label', labelInput.trim())
 
     try {
-      const res = await fetch('http://localhost:8000/api/upload', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/upload', {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` },
         body: formData
@@ -85,7 +86,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
 
   const handleSetActive = async (resumeId) => {
     try {
-      const res = await fetch('http://localhost:8000/api/resumes/active', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/resumes/active', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -103,20 +104,19 @@ export default function EngineRoom({ onActiveResumeChange }) {
   }
 
   const handleDeleteResume = async (resumeId) => {
-    if (!window.confirm("Are you sure you want to delete this resume? This will permanently purge all related context.")) {
-      return
-    }
     try {
-      const res = await fetch(`http://localhost:8000/api/resumes/${resumeId}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/resumes/${resumeId}`, {
         method: 'DELETE',
         headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` }
       })
       if (res.ok) {
+        setConfirmDeleteId(null)
         fetchResumes()
         if (onActiveResumeChange) onActiveResumeChange()
       }
     } catch (err) {
       console.error("Failed to delete resume:", err)
+      setConfirmDeleteId(null)
     }
   }
 
@@ -204,7 +204,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
                         : 'bg-white/[0.02] border-white/[0.05] hover:bg-white/[0.05] hover:border-white/20'
                     }`}
                   >
-                    {resume.is_active === 1 && <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-transparent opacity-50"></div>}
+                    {resume.is_active === 1 && <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 via-transparent to-transparent opacity-50 pointer-events-none"></div>}
                     <div className="relative z-10">
                       <div className="flex justify-between items-start mb-3">
                         <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center text-white/70 group-hover:scale-105 transition-transform duration-300">
@@ -234,7 +234,7 @@ export default function EngineRoom({ onActiveResumeChange }) {
                       </p>
                     </div>
 
-                    <div className="flex items-center justify-between border-t border-white/5 pt-3 mt-auto">
+                    <div className="relative z-10 flex items-center justify-between border-t border-white/5 pt-3 mt-auto">
                       <button 
                         onClick={() => handleSetActive(resume.id)}
                         disabled={resume.is_active === 1}
@@ -254,13 +254,30 @@ export default function EngineRoom({ onActiveResumeChange }) {
                         Active
                       </button>
 
-                      <button 
-                        onClick={() => handleDeleteResume(resume.id)}
-                        className="text-white/20 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all duration-300"
-                        title="Delete Profile"
-                      >
-                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
-                      </button>
+                      {confirmDeleteId === resume.id ? (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => handleDeleteResume(resume.id)}
+                            className="text-[10px] font-bold px-2 py-1 bg-red-500/20 hover:bg-red-500/40 text-red-400 border border-red-500/30 rounded-lg transition-all"
+                          >
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => setConfirmDeleteId(null)}
+                            className="text-[10px] px-2 py-1 bg-white/5 hover:bg-white/10 text-white/50 border border-white/10 rounded-lg transition-all"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <button 
+                          onClick={() => setConfirmDeleteId(resume.id)}
+                          className="text-white/20 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-lg transition-all duration-300"
+                          title="Delete Profile"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                        </button>
+                      )}
                     </div>
                   </div>
                 ))}

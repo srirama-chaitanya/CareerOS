@@ -1,36 +1,41 @@
 import os
 import json
-import requests
+import httpx
 import logging
 from dotenv import load_dotenv
 
-def search_jobs(query: str, location: str = "remote", num_pages: int = 1):
+async def search_jobs(query: str, location: str = "remote", num_pages: int = 2):
     """
-    Searches for jobs using JSearch API.
-    Graceful Fallback: If JSEARCH_API_KEY is not set or the API fails, it returns a robust set of mock jobs.
+    Searches for jobs using JSearch API (fully async, non-blocking).
+    Graceful Fallback: If JSEARCH_API_KEY is not set or the API fails, returns mock jobs.
+    Only fetches jobs posted within the last week (date_posted=week).
     """
-    # Force reload the .env file from disk to capture live updates
     load_dotenv(override=True)
     api_key = os.getenv("JSEARCH_API_KEY")
-    
-    # Graceful Fallback Mode if no API key is found
+
     if not api_key:
         logging.info("JSEARCH_API_KEY not found in .env. Using Graceful Fallback Mock Jobs.")
         return get_mock_jobs(query)
-        
+
     url = "https://jsearch.p.rapidapi.com/search"
-    querystring = {"query": f"{query} in {location}", "page": str(num_pages), "num_pages": "1"}
-    
+    querystring = {
+        "query": f"{query} in {location}",
+        "page": "1",
+        "num_pages": str(num_pages),
+        "date_posted": "3days"   # only jobs from the last ~5 days
+    }
+
     headers = {
         "x-rapidapi-key": api_key,
         "x-rapidapi-host": "jsearch.p.rapidapi.com"
     }
-    
+
     try:
-        response = requests.get(url, headers=headers, params=querystring)
-        response.raise_for_status()
-        data = response.json()
-        
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            response = await client.get(url, headers=headers, params=querystring)
+            response.raise_for_status()
+            data = response.json()
+
         jobs = []
         for job in data.get('data', []):
             jobs.append({
@@ -40,12 +45,13 @@ def search_jobs(query: str, location: str = "remote", num_pages: int = 1):
                 "job_country": job.get("job_country"),
                 "job_is_remote": job.get("job_is_remote"),
                 "job_description": job.get("job_description"),
-                "job_apply_link": job.get("job_apply_link")
+                "job_apply_link": job.get("job_apply_link"),
+                "job_posted_at_datetime_utc": job.get("job_posted_at_datetime_utc")
             })
         if not jobs:
             logging.info(f"JSearch API returned 0 jobs for query: {query}. Falling back to Mock Jobs.")
             return get_mock_jobs(query)
-            
+
         return jobs
     except Exception as e:
         logging.error(f"JSearch API error: {str(e)}. Falling back to Mock Jobs.")

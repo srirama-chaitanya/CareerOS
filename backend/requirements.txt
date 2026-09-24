@@ -1,10 +1,29 @@
+# Core web framework
 fastapi==0.115.6
-uvicorn==0.34.0
+uvicorn[standard]==0.34.0
 pydantic==2.10.3
-langchain-google-genai
-langgraph
-langgraph-checkpoint-sqlite
-chromadb
-pypdf
-python-multipart
-langchain-community
+python-multipart==0.0.20
+
+# Auth
+passlib[bcrypt]==1.7.4
+bcrypt==4.0.1
+PyJWT==2.10.1
+python-dotenv==1.0.1
+
+# Google AI & Auth
+langchain-google-genai==2.1.4
+google-auth==2.49.0
+google-api-python-client==2.169.0
+
+# LangGraph / LangChain
+langgraph==0.4.8
+langgraph-checkpoint==2.1.2
+langgraph-checkpoint-sqlite==2.0.6
+langchain-core==0.3.63
+langchain-community==0.3.24
+
+# PDF parsing
+pypdf==5.4.0
+
+# HTTP
+httpx==0.28.1

@@ -73,8 +73,9 @@ export default function Sidebar({ activeModule, setActiveModule, activeResumeLab
       </nav>
       
       <div className="mt-auto pt-6 border-t border-white/10">
-        <div className={`flex flex-col gap-4 ${isCollapsed ? 'items-center' : 'px-2'}`}>
-          <div className="flex items-center space-x-3 w-full">
+        <div className={`flex flex-col items-center gap-3 ${isCollapsed ? '' : 'px-2'}`}>
+          {/* Avatar + name */}
+          <div className={`flex items-center gap-3 w-full ${isCollapsed ? 'justify-center' : ''}`}>
             <div className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center text-xs font-bold text-white shrink-0">
               {initial}
             </div>
@@ -87,9 +88,11 @@ export default function Sidebar({ activeModule, setActiveModule, activeResumeLab
               </div>
             )}
           </div>
-          <button 
+
+          {/* Logout */}
+          <button
             onClick={onLogout}
-            className={`w-full flex items-center justify-center gap-2 p-2 rounded-lg text-white/60 hover:text-red-400 hover:bg-white/5 transition-colors ${isCollapsed ? '' : ''}`}
+            className={`flex items-center justify-center gap-2 p-2 rounded-lg text-white/50 hover:text-red-400 hover:bg-white/5 transition-colors w-full`}
             title="Log Out"
           >
             <LogOut className="w-4 h-4" />

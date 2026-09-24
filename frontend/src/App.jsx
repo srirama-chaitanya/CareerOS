@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 import Login from './components/Login'
 import Sidebar from './components/Sidebar'
-import AdvocateChat from './components/AdvocateChat'
 import EngineRoom from './components/EngineRoom'
 import AutoHunt from './components/AutoHunt'
 import ColdOutreacher from './components/ColdOutreacher'
@@ -23,12 +22,10 @@ function App() {
   const [unlockedDay, setUnlockedDay] = useState(1)
   const [outreachTargetContext, setOutreachTargetContext] = useState('')
 
-  // Hoisted Auto-Hunt States to run completely in background
-  const [searchQuery, setSearchQuery] = useState('')
+  // Auto-Hunt States
   const [location, setLocation] = useState('Remote')
   const [jobType, setJobType] = useState('FULLTIME')
   const [experienceLevel, setExperienceLevel] = useState('')
-  const [extraInfo, setExtraInfo] = useState('')
 
   const [loadingHunt, setLoadingHunt] = useState(false)
   const [jobs, setJobs] = useState([])
@@ -37,7 +34,7 @@ function App() {
   const refreshActiveResume = async () => {
     if (!token) return;
     try {
-      const res = await fetch('http://localhost:8000/api/resumes', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/resumes', {
         headers: { 'Authorization': `Bearer ${token}` }
       });
       if (res.ok) {
@@ -67,36 +64,33 @@ function App() {
     setUserEmail('');
   };
 
-  // Auto-fill query when label changes, if query has not been manually customized
-  useEffect(() => {
-    if (activeResumeLabel && !searchQuery) {
-      setSearchQuery(activeResumeLabel)
-    }
-  }, [activeResumeLabel])
 
-  const executeHuntSearch = async () => {
-    if (!searchQuery.trim()) {
-      setHuntError('Please enter a target role or title to search.')
+  const executeHuntSearch = async ({ domain = '', skillsFocus = '' } = {}) => {
+    if (!activeResumeLabel.trim()) {
+      setHuntError('No active resume. Please select a profile in the Context Engine first.')
       return
     }
 
     setLoadingHunt(true)
     setHuntError('')
+
+    // Build extra context from optional filters
+    const extras = [domain, skillsFocus].filter(Boolean).join(', ')
     
     try {
-      const response = await fetch('http://localhost:8000/api/hunt', {
+      const response = await fetch(import.meta.env.VITE_API_URL + '/api/hunt', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}` 
         },
         body: JSON.stringify({
-          search_string: searchQuery,
+          search_string: activeResumeLabel,
           active_resume_id: activeResumeId,
           location: location,
           job_type: jobType,
           experience_level: experienceLevel,
-          extra_info: extraInfo
+          extra_info: extras
         })
       })
       const data = await response.json()
@@ -146,24 +140,18 @@ function App() {
             <EngineRoom onActiveResumeChange={refreshActiveResume} />
           </div>
           <div className={activeModule === 'hunt' ? 'block h-full' : 'hidden'}>
-            <AutoHunt 
-              activeResumeId={activeResumeId} 
-              activeResumeLabel={activeResumeLabel} 
-              refreshActiveResume={refreshActiveResume} 
-              searchQuery={searchQuery}
-              setSearchQuery={setSearchQuery}
+            <AutoHunt
+              activeResumeId={activeResumeId}
+              activeResumeLabel={activeResumeLabel}
               location={location}
               setLocation={setLocation}
               jobType={jobType}
               setJobType={setJobType}
               experienceLevel={experienceLevel}
               setExperienceLevel={setExperienceLevel}
-              extraInfo={extraInfo}
-              setExtraInfo={setExtraInfo}
               loading={loadingHunt}
               jobs={jobs}
               error={huntError}
-              setError={setHuntError}
               handleSearch={executeHuntSearch}
               onDraftOutreach={(jobDescription) => {
                 setOutreachTargetContext(jobDescription)
@@ -204,8 +192,6 @@ function App() {
             />
           </div>
         </main>
-
-          <AdvocateChat />
         </div>
       )}
     </GoogleOAuthProvider>

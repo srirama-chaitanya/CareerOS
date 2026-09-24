@@ -1,14 +1,23 @@
 # Frontend
 frontend/node_modules/
 frontend/dist/
-frontend/.env*
+frontend/.env
+frontend/.env.local
+frontend/.env.production
 
 # Backend
 backend/venv/
 backend/__pycache__/
 backend/*.pyc
 backend/.env
+backend/.env.local
 backend/checkpoints.db*
+backend/backend.log
+backend/__pycache__/
+
+# Always allow example templates (not secrets)
+!.env.example
+!**/.env.example
 
 # OS & Editor
 .DS_Store

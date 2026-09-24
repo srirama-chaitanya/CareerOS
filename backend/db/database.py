@@ -1,10 +1,18 @@
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 import sqlite3
 import os
 from typing import List, Dict, Optional
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "..", "checkpoints.db")
+from dotenv import load_dotenv
+load_dotenv()
+
+# In production (e.g. Render with a persistent disk mounted at /app/data),
+# set the DB_PATH env var to /app/data/checkpoints.db so data survives redeploys.
+# Defaults to local file for dev.
+_default_db = os.path.join(os.path.dirname(__file__), "..", "checkpoints.db")
+DB_PATH = os.environ.get("DB_PATH", _default_db)
+
 
 def init_db():
     conn = sqlite3.connect(DB_PATH)
@@ -70,10 +78,7 @@ def init_db():
 init_db()
 
 def get_checkpointer():
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    saver = SqliteSaver(conn)
-    saver.setup() # Ensure tables are created
-    return saver
+    return AsyncSqliteSaver.from_conn_string(DB_PATH)
 
 # --- User Auth Helpers ---
 def db_create_user(user_id: str, email: str, password_hash: Optional[str] = None):

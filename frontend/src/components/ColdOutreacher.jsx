@@ -41,7 +41,7 @@ function ColdOutreacherContent({ initialContext = '' }) {
     const activeModifier = modifier || selectedTone
 
     try {
-      const res = await fetch('http://localhost:8000/api/draft', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/draft', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -78,7 +78,7 @@ function ColdOutreacherContent({ initialContext = '' }) {
     setStatusMsg({ text: 'Dispatching via Gmail API...', type: 'info' })
 
     try {
-      const res = await fetch('http://localhost:8000/api/send_email', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/send_email', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',

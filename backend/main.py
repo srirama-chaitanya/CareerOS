@@ -4,13 +4,14 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Optional
+from contextlib import asynccontextmanager
 import logging
 import os
 import base64
 import uuid
 import tempfile
 import json
-import json
+from datetime import datetime, timedelta, timezone
 from email.message import EmailMessage
 from google.oauth2.credentials import Credentials
 from google.oauth2 import id_token
@@ -19,6 +20,9 @@ from langchain_community.document_loaders import PyPDFLoader
 from googleapiclient.discovery import build
 import jwt
 from passlib.context import CryptContext
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from db.database import (
     get_checkpointer,
@@ -37,29 +41,53 @@ from db.database import (
     db_get_all_study_plans,
     db_delete_study_plan
 )
-from agents.graph import get_graph, stream_interview_response, llm
+from agents.graph import get_graph, stream_interview_response
+from tools.llm_pool import invoke_with_retry_sync
 from langchain_core.messages import HumanMessage
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="CareerOS API")
+# Global references — set inside lifespan
+checkpointer = None
+agent_graph = None
 
-# Allow CORS for frontend
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Open AsyncSqliteSaver as a proper async context manager at startup."""
+    global checkpointer, agent_graph
+    async with get_checkpointer() as cp:
+        checkpointer = cp
+        agent_graph = get_graph(cp)
+        logging.info("CareerOS: AsyncSqliteSaver checkpointer initialized.")
+        yield
+    logging.info("CareerOS: Checkpointer shut down cleanly.")
+
+app = FastAPI(title="CareerOS API", lifespan=lifespan)
+
+# Public health check — no auth required, used by Render/Railway & Docker HEALTHCHECK
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+# Allow CORS for frontend — set ALLOWED_ORIGINS env var in production
+_raw_origins = os.environ.get("ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+_allowed_origins = [o.strip() for o in _raw_origins.split(",") if o.strip()]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_origins=_allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# Initialize Checkpointer and Graph
-checkpointer = get_checkpointer()
-agent_graph = get_graph(checkpointer)
-
 # --- Authentication Configuration ---
-SECRET_KEY = "super-secret-key-for-career-os-change-in-prod"
+_raw_secret = os.environ.get("SECRET_KEY", "")
+if not _raw_secret:
+    raise RuntimeError("SECRET_KEY environment variable is not set. Refusing to start.")
+SECRET_KEY = _raw_secret
 ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_DAYS = int(os.environ.get("ACCESS_TOKEN_EXPIRE_DAYS", "7"))
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 security = HTTPBearer()
 
@@ -72,7 +100,10 @@ def get_password_hash(password):
     return pwd_context.hash(password)
 
 def create_access_token(data: dict):
-    return jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
+    payload = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(days=ACCESS_TOKEN_EXPIRE_DAYS)
+    payload.update({"exp": expire})
+    return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> str:
     token = credentials.credentials
@@ -233,7 +264,7 @@ async def trigger_hunt(request: HuntRequest, thread_id: str = "engineer_1", user
     }
     
     logging.info(f"Triggering Smart Job Hunt for {user_id}_{thread_id} with query: {request.search_string}")
-    result = agent_graph.invoke(update_data, config=config)
+    result = await agent_graph.ainvoke(update_data, config=config)
     return {"jobs": result.get("job_results", [])}
 
 @app.post("/api/upload")
@@ -305,38 +336,30 @@ async def delete_resume(resume_id: str, user_id: str = Depends(get_current_user)
 
 @app.post("/api/draft")
 async def draft_email(request: DraftRequest, user_id: str = Depends(get_current_user)):
-    thread_id = "draft_bot"
-    config = {"configurable": {"thread_id": f"{user_id}_{thread_id}"}}
+    # Use a unique thread_id to avoid memory leaks or checkpoint versioning errors for stateless calls
+    config = {"configurable": {"thread_id": f"{user_id}_draft_{uuid.uuid4().hex}"}}
     update_data = {
         "user_id": user_id,
         "action": "draft",
         "outreach_target_jd": request.job_description,
         "draft_modifier": request.modifier
     }
-    
+
     try:
-        app_graph = get_graph(checkpointer)
-        app_graph.update_state(config, update_data)
-        
-        final_state = None
-        for state in app_graph.stream(update_data, config=config):
-            final_state = state
-            
-        if final_state and 'draft_pitch' in final_state:
-            draft_node = final_state['draft_pitch']
-            return {
-                "subject": draft_node.get("outreach_subject", "Software Engineering Opportunity"),
-                "body": draft_node.get("outreach_draft", "")
-            }
-            
-        return {"subject": "", "body": "Error generating draft."}
+        result = await agent_graph.ainvoke(update_data, config=config)
+
+        return {
+            "subject": result.get("outreach_subject", "Software Engineering Opportunity"),
+            "body": result.get("outreach_draft", "")
+        }
     except Exception as e:
         logging.error(f"Error drafting: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/api/strategist/plan")
 async def generate_strategist_plan(request: StrategistPlanRequest, user_id: str = Depends(get_current_user)):
-    config = {"configurable": {"thread_id": f"{user_id}_strategist"}}
+    # Use a unique thread_id to avoid memory leaks or checkpoint versioning errors for stateless calls
+    config = {"configurable": {"thread_id": f"{user_id}_strategist_{uuid.uuid4().hex}"}}
     
     update_data = {
         "action": "plan",
@@ -348,7 +371,7 @@ async def generate_strategist_plan(request: StrategistPlanRequest, user_id: str 
     logging.info(f"Generating {request.duration_days}-day study plan for {user_id} regarding '{request.topic}'")
     
     try:
-        result = agent_graph.invoke(update_data, config=config)
+        result = await agent_graph.ainvoke(update_data, config=config)
         plan_data = result.get("study_plan", {})
         
         # Save to DB
@@ -419,16 +442,16 @@ async def start_interview_chat(request: InterviewChatRequest, background_tasks: 
             async for chunk in generator:
                 if chunk:
                     full_response += chunk
-                    yield chunk
+                    yield f"data: {chunk}\n\n"
             
             final_history = full_history + [{"role": "assistant", "content": full_response}]
             background_tasks.add_task(save_chat_to_state, user_id, request.session_id, active_resume_text, request.target_company, final_history)
             
         except Exception as e:
             logging.error(f"Error during streaming: {e}")
-            yield f"\n[Error: {str(e)}]"
+            yield f"data: [Error: {str(e)}]\n\n"
             
-    return StreamingResponse(event_stream(), media_type="text/plain")
+    return StreamingResponse(event_stream(), media_type="text/event-stream", headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 @app.post("/api/send_email")
 async def send_email(request: SendEmailRequest, user_id: str = Depends(get_current_user)):
@@ -479,7 +502,7 @@ JSON SCHEMA:
 }}"""
 
     try:
-        response = llm.invoke([HumanMessage(content=system_prompt)])
+        response = invoke_with_retry_sync([HumanMessage(content=system_prompt)])
         raw_json = response.content.strip()
         
         if raw_json.startswith("```json"):
@@ -528,7 +551,7 @@ JSON SCHEMA:
 }}"""
 
     try:
-        response = llm.invoke([HumanMessage(content=system_prompt)])
+        response = invoke_with_retry_sync([HumanMessage(content=system_prompt)])
         raw_json = response.content.strip()
         
         if raw_json.startswith("```json"):

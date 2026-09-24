@@ -10,7 +10,7 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('http://localhost:8000/api/evaluations', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/evaluations', {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('career_os_token')}` },
         cache: 'no-store'
       })
@@ -36,7 +36,7 @@ export default function ForgeHistory({ setActiveModule, setStrategistTopic }) {
     e.stopPropagation()
     if (!confirm('Are you sure you want to delete this critique permanently?')) return
     try {
-      const res = await fetch(`http://localhost:8000/api/evaluations/${id}`, {
+      const res = await fetch(`${import.meta.env.VITE_API_URL}/api/evaluations/${id}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('career_os_token')}`

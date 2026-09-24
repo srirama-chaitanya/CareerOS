@@ -200,7 +200,7 @@ export default function MockInterviewer({ activeResumeId, setActiveModule, setSt
     abortControllerRef.current = new AbortController()
 
     try {
-      const res = await fetch('http://localhost:8000/api/interview/chat', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/interview/chat', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
@@ -231,40 +231,48 @@ export default function MockInterviewer({ activeResumeId, setActiveModule, setSt
         const { value, done } = await reader.read()
         if (done) break
         
-        const chunk = decoder.decode(value, { stream: true })
+        const rawChunk = decoder.decode(value, { stream: true })
         
-        if (chunk.includes('[Error:')) {
-          const errMsg = chunk.substring(chunk.indexOf('[Error:') + 7, chunk.lastIndexOf(']')).trim()
-          setError(errMsg || 'Gemini API free tier rate limit exceeded. Please check your quota or billing plan.')
-          setLoading(false)
-          fullAssistantMessageRef.current = ''
-          setChatHistory(prev => prev.slice(0, -1))
-          break
-        }
+        // Parse SSE format: split on double-newlines, strip "data: " prefix
+        const lines = rawChunk.split('\n\n')
+        for (const line of lines) {
+          const trimmed = line.trim()
+          if (!trimmed || !trimmed.startsWith('data: ')) continue
+          const chunk = trimmed.slice(6) // strip "data: "
         
-        fullAssistantMessageRef.current += chunk
-        
-        // Progressive TTS Chunking (Zero-Skip Algorithm)
-        let unspoken = fullAssistantMessageRef.current.substring(spokenTextLength)
-        let boundaryMatch = unspoken.match(/[.!?\n]+(\s|$)/)
-        
-        while (boundaryMatch) {
-            const boundaryIndex = boundaryMatch.index
-            const boundaryLength = boundaryMatch[0].length
-            const consumedLength = boundaryIndex + boundaryLength
-            
-            const sentenceToSpeak = unspoken.substring(0, consumedLength)
-            
-            // Only speak if it contains actual letters, ignore empty markdown blocks
-            if (sentenceToSpeak.trim().match(/[a-zA-Z0-9]/)) {
-                speakText(sentenceToSpeak.replace(/\*/g, '').trim())
-            }
-            
-            spokenTextLength += consumedLength
-            
-            unspoken = fullAssistantMessageRef.current.substring(spokenTextLength)
-            boundaryMatch = unspoken.match(/[.!?\n]+(\s|$)/)
-        }
+          if (chunk.includes('[Error:')) {
+            const errMsg = chunk.substring(chunk.indexOf('[Error:') + 7, chunk.lastIndexOf(']')).trim()
+            setError(errMsg || 'Gemini API free tier rate limit exceeded. Please check your quota or billing plan.')
+            setLoading(false)
+            fullAssistantMessageRef.current = ''
+            setChatHistory(prev => prev.slice(0, -1))
+            break
+          }
+          
+          fullAssistantMessageRef.current += chunk
+          
+          // Progressive TTS Chunking (Zero-Skip Algorithm)
+          let unspoken = fullAssistantMessageRef.current.substring(spokenTextLength)
+          let boundaryMatch = unspoken.match(/[.!?\n]+(\s|$)/)
+          
+          while (boundaryMatch) {
+              const boundaryIndex = boundaryMatch.index
+              const boundaryLength = boundaryMatch[0].length
+              const consumedLength = boundaryIndex + boundaryLength
+              
+              const sentenceToSpeak = unspoken.substring(0, consumedLength)
+              
+              // Only speak if it contains actual letters, ignore empty markdown blocks
+              if (sentenceToSpeak.trim().match(/[a-zA-Z0-9]/)) {
+                  speakText(sentenceToSpeak.replace(/\*/g, '').trim())
+              }
+              
+              spokenTextLength += consumedLength
+              
+              unspoken = fullAssistantMessageRef.current.substring(spokenTextLength)
+              boundaryMatch = unspoken.match(/[.!?\n]+(\s|$)/)
+          }
+        } // end SSE line loop
       }
       
       // Speak remaining trailing text
@@ -343,7 +351,7 @@ export default function MockInterviewer({ activeResumeId, setActiveModule, setSt
     setError('')
 
     try {
-      const res = await fetch('http://localhost:8000/api/evaluate/interview', {
+      const res = await fetch(import.meta.env.VITE_API_URL + '/api/evaluate/interview', {
         method: 'POST',
         headers: { 
           'Content-Type': 'application/json',
