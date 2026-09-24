@@ -25,7 +25,7 @@ from google.api_core.exceptions import ResourceExhausted
 
 logger = logging.getLogger(__name__)
 
-MODEL_NAME = "gemini-2.5-flash"
+MODEL_NAME = "gemini-1.5-flash"
 
 # ── Lazy key pool — loaded on first use (after dotenv is read by main.py) ─────
 _api_keys: list[str] = []
