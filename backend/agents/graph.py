@@ -56,11 +56,9 @@ async def hunt_jobs(state: AgentState):
     experience_level = state.get("experience_level", "")
     extra_info = state.get("extra_info", "")
 
-    # Build search query dynamically combining filters
-    search_query = f"{experience_level} {search_string} {job_type}".strip()
+    # Pass the raw resume label as the core query — jsearch.py composes the full query
+    raw_jobs = await search_jobs(search_string, location, job_type=job_type, experience_level=experience_level, extra_info=extra_info)
 
-    # Execute the JSearch query (fully async, non-blocking)
-    raw_jobs = await search_jobs(search_query, location, job_type=job_type, experience_level=experience_level, extra_info=extra_info)
 
 
     

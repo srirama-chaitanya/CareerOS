@@ -19,11 +19,19 @@ async def search_jobs(query: str, location: str = "remote", num_pages: int = 2, 
         logging.warning("JSEARCH_API_KEY not set. Returning empty job list.")
         return []
 
-    # Build a richer query string
-    query_parts = [query]
-    if extra_info:
-        query_parts.append(extra_info)
+    # Map code values to natural language for JSearch
+    job_type_map = {
+        "FULLTIME": "full time",
+        "PARTTIME": "part time",
+        "INTERN": "internship",
+        "CONTRACTOR": "contract"
+    }
+    job_type_label = job_type_map.get(job_type.upper(), "") if job_type else ""
+
+    # Build a rich natural language query: "Senior Backend Engineer full time Fintech"
+    query_parts = [p for p in [experience_level, query, job_type_label, extra_info] if p.strip()]
     full_query = " ".join(query_parts)
+
 
     url = "https://jsearch.p.rapidapi.com/search"
     headers = {
