@@ -19,6 +19,10 @@ backend/__pycache__/
 !.env.example
 !**/.env.example
 
+# Private docs (merged into README.md)
+ARCHITECTURE.md
+internship.md
+
 # OS & Editor
 .DS_Store
 .vscode/
